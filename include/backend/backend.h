@@ -4,10 +4,19 @@
 #include <wlr/backend/interface.h>
 
 struct glider_drm_backend;
+struct glider_drm_device;
+
+struct glider_drm_crtc {
+	struct glider_drm_device *device;
+	uint32_t id;
+};
 
 struct glider_drm_device {
 	struct glider_drm_backend *backend;
 	int fd;
+
+	struct glider_drm_crtc *crtcs;
+	size_t crtcs_len;
 
 	struct wl_listener invalidated;
 };
@@ -31,5 +40,9 @@ struct wlr_backend *glider_drm_backend_create(struct wl_display *display,
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
 void finish_drm_device(struct glider_drm_device *device);
+
+bool init_drm_crtc(struct glider_drm_crtc *crtc,
+	struct glider_drm_device *device, uint32_t id);
+void finish_drm_crtc(struct glider_drm_crtc *crtc);
 
 #endif

@@ -1,6 +1,39 @@
+#include <stdlib.h>
 #include <wlr/util/log.h>
 #include <xf86drm.h>
+#include <xf86drmMode.h>
 #include "backend/backend.h"
+
+static bool get_drm_resources(struct glider_drm_device *device) {
+	drmModeRes *res = drmModeGetResources(device->fd);
+	if (res == NULL) {
+		wlr_log_errno(WLR_ERROR, "drmModeGetResources failed");
+		return false;
+	}
+
+	device->crtcs = calloc(res->count_crtcs, sizeof(struct glider_drm_crtc));
+	if (device->crtcs == NULL) {
+		drmModeFreeResources(res);
+		return false;
+	}
+
+	for (int i = 0; i < res->count_crtcs; i++) {
+		if (!init_drm_crtc(&device->crtcs[i], device, res->crtcs[i])) {
+			goto error_crtc;
+		}
+		device->crtcs_len++;
+	}
+
+	drmModeFreeResources(res);
+	return true;
+
+error_crtc:
+	for (size_t i = 0; i < device->crtcs_len; i++) {
+		finish_drm_crtc(&device->crtcs[i]);
+	}
+	drmModeFreeResources(res);
+	return false;
+}
 
 static void handle_invalidated(struct wl_listener *listener, void *data) {
 	struct glider_drm_device *device =
@@ -26,6 +59,10 @@ bool init_drm_device(struct glider_drm_device *device,
 	if (drmGetCap(device->fd, DRM_CAP_CRTC_IN_VBLANK_EVENT, &cap) != 0 ||
 			!cap) {
 		wlr_log(WLR_ERROR, "DRM_CRTC_IN_VBLANK_EVENT unsupported");
+		return false;
+	}
+
+	if (!get_drm_resources(device)) {
 		return false;
 	}
 
