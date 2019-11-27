@@ -14,9 +14,15 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	struct wlr_session *session = wlr_session_create(server.display);
+	if (session == NULL) {
+		return 1;
+	}
+
 	server.backend = wlr_multi_backend_create(server.display);
 
-	struct wlr_backend *drm_backend = glider_drm_backend_create(server.display);
+	struct wlr_backend *drm_backend =
+		glider_drm_backend_create(server.display, session);
 	if (drm_backend == NULL) {
 		return 1;
 	}

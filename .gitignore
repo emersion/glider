@@ -2,3 +2,5 @@
 /build-*
 
 /subprojects
+
+*.log

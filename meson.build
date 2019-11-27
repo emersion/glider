@@ -44,6 +44,7 @@ executable(
 	'glider',
 	files(
 		'backend/backend.c',
+		'backend/device.c',
 		'main.c',
 	),
 	dependencies: [
