@@ -1,6 +1,7 @@
 #ifndef GLIDER_BACKEND_BACKEND_H
 #define GLIDER_BACKEND_BACKEND_H
 
+#include <libliftoff.h>
 #include <wlr/backend/interface.h>
 
 struct glider_drm_backend;
@@ -9,6 +10,8 @@ struct glider_drm_device;
 struct glider_drm_crtc {
 	struct glider_drm_device *device;
 	uint32_t id;
+
+	struct liftoff_output *liftoff_output;
 };
 
 struct glider_drm_device {
@@ -17,6 +20,8 @@ struct glider_drm_device {
 
 	struct glider_drm_crtc *crtcs;
 	size_t crtcs_len;
+
+	struct liftoff_device *liftoff_device;
 
 	struct wl_listener invalidated;
 };

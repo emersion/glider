@@ -62,7 +62,13 @@ bool init_drm_device(struct glider_drm_device *device,
 		return false;
 	}
 
+	device->liftoff_device = liftoff_device_create(device->fd);
+	if (device->liftoff_device == NULL) {
+		return false;
+	}
+
 	if (!get_drm_resources(device)) {
+		liftoff_device_destroy(device->liftoff_device);
 		return false;
 	}
 
@@ -74,5 +80,6 @@ bool init_drm_device(struct glider_drm_device *device,
 
 void finish_drm_device(struct glider_drm_device *device) {
 	wl_list_remove(&device->invalidated.link);
+	liftoff_device_destroy(device->liftoff_device);
 	wlr_session_close_file(device->backend->session, device->fd);
 }
