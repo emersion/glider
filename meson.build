@@ -42,7 +42,10 @@ glider_inc = include_directories('include')
 
 executable(
 	'glider',
-	files('main.c'),
+	files(
+		'backend/backend.c',
+		'main.c',
+	),
 	dependencies: [
 		liftoff,
 		wlroots,

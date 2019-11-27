@@ -5,6 +5,7 @@
 
 struct glider_server {
 	struct wl_display *display;
+	struct wlr_backend *backend;
 };
 
 #endif
