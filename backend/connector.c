@@ -1,5 +1,7 @@
+#define _XOPEN_SOURCE 700
 #include <assert.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <wlr/util/log.h>
 #include "backend/backend.h"
 
@@ -50,14 +52,29 @@ error:
 
 static struct glider_drm_crtc *connector_pick_crtc(
 		struct glider_drm_connector *conn) {
-	return NULL; // TODO
+	struct glider_drm_device *device = conn->device;
+
+	// Remove in-use CRTCs from the set
+	uint32_t possible_crtcs = conn->possible_crtcs;
+	struct glider_drm_connector *c;
+	wl_list_for_each(c, &device->connectors, link) {
+		if (c->crtc != NULL) {
+			size_t crtc_index = c->crtc - device->crtcs;
+			possible_crtcs &= ~(1 << crtc_index);
+		}
+	}
+	if (possible_crtcs == 0) {
+		return NULL;
+	} else {
+		int crtc_index = ffs(possible_crtcs) - 1;
+		return &device->crtcs[crtc_index];
+	}
 }
 
 static void connector_set_crtc(struct glider_drm_connector *conn,
 		struct glider_drm_crtc *crtc) {
-	// TODO: make sure the CRTC isn't used on another connector
 	conn->crtc = crtc;
-	conn->props[GLIDER_DRM_CONNECTOR_CRTC_ID].pending = crtc->id;
+	conn->props[GLIDER_DRM_CONNECTOR_CRTC_ID].pending = crtc ? crtc->id : 0;
 }
 
 static bool output_set_mode(struct wlr_output *output,
