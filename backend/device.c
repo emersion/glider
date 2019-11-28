@@ -103,9 +103,14 @@ bool init_drm_device(struct glider_drm_device *device,
 
 void finish_drm_device(struct glider_drm_device *device) {
 	wl_list_remove(&device->invalidated.link);
+	for (size_t i = 0; i < device->planes_len; i++) {
+		finish_drm_plane(&device->planes[i]);
+	}
+	free(device->planes);
 	for (size_t i = 0; i < device->crtcs_len; i++) {
 		finish_drm_crtc(&device->crtcs[i]);
 	}
+	free(device->crtcs);
 	liftoff_device_destroy(device->liftoff_device);
 	wlr_session_close_file(device->backend->session, device->fd);
 }

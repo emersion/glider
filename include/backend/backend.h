@@ -3,6 +3,7 @@
 
 #include <libliftoff.h>
 #include <wlr/backend/interface.h>
+#include <xf86drmMode.h>
 
 struct glider_drm_backend;
 struct glider_drm_device;
@@ -22,6 +23,7 @@ struct glider_drm_prop {
 struct glider_drm_plane {
 	struct glider_drm_device *device;
 	uint32_t id;
+	drmModePlane *plane;
 
 	struct glider_drm_prop props[GLIDER_DRM_PLANE_PROP_COUNT];
 };
@@ -29,6 +31,7 @@ struct glider_drm_plane {
 struct glider_drm_crtc {
 	struct glider_drm_device *device;
 	uint32_t id;
+	drmModeCrtc *crtc;
 
 	struct liftoff_output *liftoff_output;
 };
