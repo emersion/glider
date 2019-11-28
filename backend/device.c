@@ -75,7 +75,7 @@ bool init_drm_device(struct glider_drm_device *device,
 	}
 	if (drmSetClientCap(device->fd, DRM_CLIENT_CAP_ATOMIC, 1) != 0) {
 		wlr_log(WLR_ERROR, "DRM_CLIENT_CAP_ATOMIC unsupported");
-		return false;
+		//return false;
 	}
 
 	uint64_t cap;

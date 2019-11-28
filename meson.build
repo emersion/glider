@@ -47,6 +47,7 @@ executable(
 		'backend/crtc.c',
 		'backend/device.c',
 		'backend/plane.c',
+		'backend/prop.c',
 		'main.c',
 	),
 	dependencies: [
