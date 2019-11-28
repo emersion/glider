@@ -46,6 +46,7 @@ executable(
 	files(
 		'allocator.c',
 		'backend/backend.c',
+		'backend/connector.c',
 		'backend/crtc.c',
 		'backend/device.c',
 		'backend/plane.c',

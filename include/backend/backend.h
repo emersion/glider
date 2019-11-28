@@ -3,6 +3,7 @@
 
 #include <libliftoff.h>
 #include <wlr/backend/interface.h>
+#include <wlr/interfaces/wlr_output.h>
 #include <xf86drmMode.h>
 
 struct glider_drm_backend;
@@ -38,9 +39,19 @@ struct glider_drm_crtc {
 	struct liftoff_output *liftoff_output;
 };
 
+struct glider_drm_connector {
+	struct wlr_output output;
+
+	struct glider_drm_device *device;
+	uint32_t id;
+};
+
 struct glider_drm_device {
 	struct glider_drm_backend *backend;
 	int fd;
+
+	struct glider_drm_connector *connectors;
+	size_t connectors_len;
 
 	struct glider_drm_crtc *crtcs;
 	size_t crtcs_len;
@@ -72,6 +83,10 @@ int glider_drm_backend_get_primary_fd(struct wlr_backend *backend);
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
 void finish_drm_device(struct glider_drm_device *device);
+
+bool init_drm_connector(struct glider_drm_connector *conn,
+	struct glider_drm_device *device, uint32_t id);
+void finish_drm_connector(struct glider_drm_connector *conn);
 
 bool init_drm_crtc(struct glider_drm_crtc *crtc,
 	struct glider_drm_device *device, uint32_t id);

@@ -14,6 +14,19 @@ static bool get_drm_resources(struct glider_drm_device *device) {
 		return false;
 	}
 
+	device->connectors =
+		calloc(res->count_connectors, sizeof(struct glider_drm_connector));
+	if (device->connectors == NULL) {
+		goto error_connector;
+	}
+
+	for (int i = 0; i < res->count_connectors; i++) {
+		if (!init_drm_connector(&device->connectors[i], device, res->connectors[i])) {
+			goto error_connector;
+		}
+		device->connectors_len++;
+	}
+
 	device->crtcs = calloc(res->count_crtcs, sizeof(struct glider_drm_crtc));
 	if (device->crtcs == NULL) {
 		goto error_crtc;
@@ -78,6 +91,10 @@ error_crtc:
 	for (size_t i = 0; i < device->crtcs_len; i++) {
 		finish_drm_crtc(&device->crtcs[i]);
 	}
+error_connector:
+	for (size_t i = 0; i < device->connectors_len; i++) {
+		finish_drm_connector(&device->connectors[i]);
+	}
 	drmModeFreeResources(res);
 	return false;
 }
@@ -135,6 +152,10 @@ void finish_drm_device(struct glider_drm_device *device) {
 		finish_drm_crtc(&device->crtcs[i]);
 	}
 	free(device->crtcs);
+	for (size_t i = 0; i < device->connectors_len; i++) {
+		finish_drm_connector(&device->connectors[i]);
+	}
+	free(device->connectors);
 	liftoff_device_destroy(device->liftoff_device);
 	wlr_session_close_file(device->backend->session, device->fd);
 }
