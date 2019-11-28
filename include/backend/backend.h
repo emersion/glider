@@ -33,6 +33,8 @@ struct glider_drm_crtc {
 	uint32_t id;
 	drmModeCrtc *crtc;
 
+	struct glider_drm_plane *primary_plane;
+
 	struct liftoff_output *liftoff_output;
 };
 

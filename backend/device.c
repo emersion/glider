@@ -1,4 +1,7 @@
+#define _XOPEN_SOURCE 700
+#include <assert.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <wlr/util/log.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -39,6 +42,27 @@ static bool get_drm_resources(struct glider_drm_device *device) {
 			goto error_plane;
 		}
 		device->planes_len++;
+	}
+
+	// Populate CRTCs primary plane, used to allocate the composition buffer
+	for (size_t i = 0; i < device->planes_len; i++) {
+		struct glider_drm_plane *plane = &device->planes[i];
+		if (plane->props[GLIDER_DRM_PLANE_TYPE].current !=
+				DRM_PLANE_TYPE_PRIMARY) {
+			continue;
+		}
+
+		// There should be exactly one primary plane per CRTC
+		int crtc_bit = ffs(plane->plane->possible_crtcs) - 1;
+
+		// This would be a kernel bug
+		assert(crtc_bit >= 0 && (size_t)crtc_bit < device->crtcs_len);
+
+		struct glider_drm_crtc *crtc = &device->crtcs[crtc_bit];
+		crtc->primary_plane = plane;
+	}
+	for (size_t i = 0; i < device->crtcs_len; i++) {
+		assert(device->crtcs[i].primary_plane != NULL);
 	}
 
 	drmModeFreePlaneResources(plane_res);
