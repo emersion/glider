@@ -14,19 +14,6 @@ static bool get_drm_resources(struct glider_drm_device *device) {
 		return false;
 	}
 
-	device->connectors =
-		calloc(res->count_connectors, sizeof(struct glider_drm_connector));
-	if (device->connectors == NULL) {
-		goto error_connector;
-	}
-
-	for (int i = 0; i < res->count_connectors; i++) {
-		if (!init_drm_connector(&device->connectors[i], device, res->connectors[i])) {
-			goto error_connector;
-		}
-		device->connectors_len++;
-	}
-
 	device->crtcs = calloc(res->count_crtcs, sizeof(struct glider_drm_crtc));
 	if (device->crtcs == NULL) {
 		goto error_crtc;
@@ -91,24 +78,21 @@ error_crtc:
 	for (size_t i = 0; i < device->crtcs_len; i++) {
 		finish_drm_crtc(&device->crtcs[i]);
 	}
-error_connector:
-	for (size_t i = 0; i < device->connectors_len; i++) {
-		finish_drm_connector(&device->connectors[i]);
-	}
-	drmModeFreeResources(res);
 	return false;
 }
 
 static void handle_invalidated(struct wl_listener *listener, void *data) {
 	struct glider_drm_device *device =
 		wl_container_of(listener, device, invalidated);
-	// TODO
+	refresh_drm_device(device);
 }
 
 bool init_drm_device(struct glider_drm_device *device,
 		struct glider_drm_backend *backend, int fd) {
 	device->backend = backend;
 	device->fd = fd;
+
+	wl_list_init(&device->connectors);
 
 	if (drmSetClientCap(device->fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1) != 0) {
 		wlr_log(WLR_ERROR, "DRM_CLIENT_CAP_UNIVERSAL_PLANES unsupported");
@@ -143,6 +127,11 @@ bool init_drm_device(struct glider_drm_device *device,
 }
 
 void finish_drm_device(struct glider_drm_device *device) {
+	struct glider_drm_connector *conn, *conn_tmp;
+	wl_list_for_each_safe(conn, conn_tmp, &device->connectors, link) {
+		destroy_drm_connector(conn);
+	}
+
 	wl_list_remove(&device->invalidated.link);
 	for (size_t i = 0; i < device->planes_len; i++) {
 		finish_drm_plane(&device->planes[i]);
@@ -152,10 +141,67 @@ void finish_drm_device(struct glider_drm_device *device) {
 		finish_drm_crtc(&device->crtcs[i]);
 	}
 	free(device->crtcs);
-	for (size_t i = 0; i < device->connectors_len; i++) {
-		finish_drm_connector(&device->connectors[i]);
-	}
-	free(device->connectors);
 	liftoff_device_destroy(device->liftoff_device);
 	wlr_session_close_file(device->backend->session, device->fd);
+}
+
+static ssize_t get_conn_index(drmModeRes *res, uint32_t id) {
+	for (int i = 0; i < res->count_connectors; i++) {
+		if (res->connectors[i] == id) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool refresh_drm_device(struct glider_drm_device *device) {
+	wlr_log(WLR_DEBUG, "Refreshing DRM device");
+
+	drmModeRes *res = drmModeGetResources(device->fd);
+	if (res == NULL) {
+		wlr_log_errno(WLR_ERROR, "drmModeGetResources failed");
+		return false;
+	}
+
+	bool seen[res->count_connectors + 1];
+	memset(seen, 0, res->count_connectors * sizeof(bool));
+
+	struct glider_drm_connector *conn, *conn_tmp;
+	wl_list_for_each_safe(conn, conn_tmp, &device->connectors, link) {
+		ssize_t index = get_conn_index(res, conn->id);
+		if (index < 0) {
+			wlr_log(WLR_DEBUG, "Connector %"PRIu32" disappeared", conn->id);
+			destroy_drm_connector(conn);
+			continue;
+		}
+
+		if (!refresh_drm_connector(conn)) {
+			goto error;
+		}
+
+		seen[index] = true;
+	}
+
+	for (int i = 0; i < res->count_connectors; i++) {
+		if (seen[i]) {
+			continue;
+		}
+
+		wlr_log(WLR_DEBUG, "Connector %"PRIu32" appeared", res->connectors[i]);
+		struct glider_drm_connector *conn =
+			create_drm_connector(device, res->connectors[i]);
+		if (conn == NULL) {
+			goto error;
+		}
+		if (!refresh_drm_connector(conn)) {
+			goto error;
+		}
+	}
+
+	drmModeFreeResources(res);
+	return true;
+
+error:
+	drmModeFreeResources(res);
+	return false;
 }

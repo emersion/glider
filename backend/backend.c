@@ -12,6 +12,13 @@ struct glider_drm_backend *get_drm_backend_from_backend(
 }
 
 static bool backend_start(struct wlr_backend *wlr_backend) {
+	struct glider_drm_backend *backend =
+		get_drm_backend_from_backend(wlr_backend);
+	for (size_t i = 0; i < backend->devices_len; i++) {
+		if (!refresh_drm_device(&backend->devices[i])) {
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -59,6 +66,7 @@ struct wlr_backend *glider_drm_backend_create(struct wl_display *display,
 	}
 	wlr_backend_init(&backend->base, &backend_impl);
 
+	backend->display = display;
 	backend->session = session;
 
 	int fds[sizeof(backend->devices) / sizeof(backend->devices[0])];

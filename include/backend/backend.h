@@ -39,19 +39,30 @@ struct glider_drm_crtc {
 	struct liftoff_output *liftoff_output;
 };
 
+struct glider_drm_mode {
+	struct wlr_output_mode wlr_mode;
+	drmModeModeInfo drm_mode;
+};
+
 struct glider_drm_connector {
-	struct wlr_output output;
+	struct wlr_output output; // only valid if connected
 
 	struct glider_drm_device *device;
 	uint32_t id;
+	struct wl_list link;
+
+	drmModeConnection connection;
+	uint32_t possible_crtcs;
+
+	struct glider_drm_mode *modes;
+	size_t modes_len;
 };
 
 struct glider_drm_device {
 	struct glider_drm_backend *backend;
 	int fd;
 
-	struct glider_drm_connector *connectors;
-	size_t connectors_len;
+	struct wl_list connectors;
 
 	struct glider_drm_crtc *crtcs;
 	size_t crtcs_len;
@@ -67,6 +78,7 @@ struct glider_drm_device {
 struct glider_drm_backend {
 	struct wlr_backend base;
 
+	struct wl_display *display;
 	struct wlr_session *session;
 	struct glider_drm_device devices[8];
 	size_t devices_len;
@@ -83,10 +95,12 @@ int glider_drm_backend_get_primary_fd(struct wlr_backend *backend);
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
 void finish_drm_device(struct glider_drm_device *device);
+bool refresh_drm_device(struct glider_drm_device *device);
 
-bool init_drm_connector(struct glider_drm_connector *conn,
+struct glider_drm_connector *create_drm_connector(
 	struct glider_drm_device *device, uint32_t id);
-void finish_drm_connector(struct glider_drm_connector *conn);
+void destroy_drm_connector(struct glider_drm_connector *conn);
+bool refresh_drm_connector(struct glider_drm_connector *conn);
 
 bool init_drm_crtc(struct glider_drm_crtc *crtc,
 	struct glider_drm_device *device, uint32_t id);
