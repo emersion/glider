@@ -52,6 +52,7 @@ executable(
 		'backend/plane.c',
 		'backend/prop.c',
 		'main.c',
+		'output.c',
 	),
 	dependencies: [
 		gbm,

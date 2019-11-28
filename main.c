@@ -35,6 +35,9 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	server.new_output.notify = handle_new_output;
+	wl_signal_add(&server.backend->events.new_output, &server.new_output);
+
 	if (!wlr_backend_start(server.backend)) {
 		return 1;
 	}
