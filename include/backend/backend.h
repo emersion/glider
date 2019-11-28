@@ -9,23 +9,34 @@
 struct glider_drm_backend;
 struct glider_drm_device;
 
+enum glider_drm_connector_prop {
+	GLIDER_DRM_CONNECTOR_CRTC_ID,
+	GLIDER_DRM_CONNECTOR_PROP_COUNT, // keep last
+};
+
+enum glider_drm_crtc_prop {
+	GLIDER_DRM_CRTC_MODE_ID,
+	GLIDER_DRM_CRTC_PROP_COUNT, // keep last
+};
+
 enum glider_drm_plane_prop {
 	GLIDER_DRM_PLANE_TYPE,
 	GLIDER_DRM_PLANE_PROP_COUNT, // keep last
 };
 
-extern const char *glider_drm_plane_prop_names[GLIDER_DRM_PLANE_PROP_COUNT];
+extern const char *glider_drm_connector_props[GLIDER_DRM_CONNECTOR_PROP_COUNT];
+extern const char *glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT];
+extern const char *glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT];
 
 struct glider_drm_prop {
 	uint32_t id;
-	uint64_t current, pending;
+	uint64_t current, pending, initial;
 };
 
 struct glider_drm_plane {
 	struct glider_drm_device *device;
 	uint32_t id;
 	drmModePlane *plane;
-
 	struct glider_drm_prop props[GLIDER_DRM_PLANE_PROP_COUNT];
 };
 
@@ -33,6 +44,7 @@ struct glider_drm_crtc {
 	struct glider_drm_device *device;
 	uint32_t id;
 	drmModeCrtc *crtc;
+	struct glider_drm_prop props[GLIDER_DRM_CRTC_PROP_COUNT];
 
 	struct glider_drm_plane *primary_plane;
 
@@ -50,9 +62,11 @@ struct glider_drm_connector {
 	struct glider_drm_device *device;
 	uint32_t id;
 	struct wl_list link;
+	struct glider_drm_prop props[GLIDER_DRM_CONNECTOR_PROP_COUNT];
 
 	drmModeConnection connection;
 	uint32_t possible_crtcs;
+	struct glider_drm_crtc *crtc; // NULL if disabled
 
 	struct glider_drm_mode *modes;
 	size_t modes_len;
@@ -113,5 +127,7 @@ void finish_drm_plane(struct glider_drm_plane *plane);
 bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 	size_t props_len, struct glider_drm_device *device,
 	uint32_t obj_id, uint32_t obj_type);
+bool apply_drm_props(struct glider_drm_prop *props, size_t props_len,
+	uint32_t obj_id, drmModeAtomicReq *req);
 
 #endif

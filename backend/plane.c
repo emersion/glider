@@ -10,7 +10,7 @@ bool init_drm_plane(struct glider_drm_plane *plane,
 		return false;
 	}
 
-	if (!init_drm_props(plane->props, glider_drm_plane_prop_names,
+	if (!init_drm_props(plane->props, glider_drm_plane_props,
 			GLIDER_DRM_PLANE_PROP_COUNT, device, id, DRM_MODE_OBJECT_PLANE)) {
 		drmModeFreePlane(plane->plane);
 		return false;

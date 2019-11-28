@@ -11,6 +11,91 @@ static struct glider_drm_connector *get_drm_connector_from_output(
 	return (struct glider_drm_connector *)wlr_output;
 }
 
+static bool connector_commit(struct glider_drm_connector *conn,
+		uint32_t flags) {
+	drmModeAtomicReq *req = drmModeAtomicAlloc();
+	if (req == NULL) {
+		return false;
+	}
+
+	if (!apply_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT,
+			conn->id, req)) {
+		goto error;
+	}
+	if (conn->crtc != NULL) {
+		if (!apply_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT,
+				conn->crtc->id, req)) {
+			goto error;
+		}
+		if (!liftoff_output_apply(conn->crtc->liftoff_output, req)) {
+			goto error;
+		}
+	}
+
+	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, NULL);
+	drmModeAtomicFree(req);
+	/*if (ret == 0 && !(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
+		commit_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT);
+		commit_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT);
+	} else {
+		rollback_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT);
+		rollback_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT);
+	}*/
+	return ret == 0;
+
+error:
+	drmModeAtomicFree(req);
+	return false;
+}
+
+static struct glider_drm_crtc *connector_pick_crtc(
+		struct glider_drm_connector *conn) {
+	return NULL; // TODO
+}
+
+static void connector_set_crtc(struct glider_drm_connector *conn,
+		struct glider_drm_crtc *crtc) {
+	// TODO: make sure the CRTC isn't used on another connector
+	conn->crtc = crtc;
+	conn->props[GLIDER_DRM_CONNECTOR_CRTC_ID].pending = crtc->id;
+}
+
+static bool output_set_mode(struct wlr_output *output,
+		struct wlr_output_mode *wlr_mode) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	struct glider_drm_mode *mode = (struct glider_drm_mode *)wlr_mode;
+
+	struct glider_drm_crtc *crtc = connector_pick_crtc(conn);
+	if (crtc == NULL) {
+		wlr_log(WLR_ERROR, "Modeset failed: no CRTC available");
+		return false;
+	}
+
+	uint32_t mode_blob;
+	if (drmModeCreatePropertyBlob(conn->device->fd, &mode->drm_mode,
+			sizeof(drmModeModeInfo), &mode_blob) != 0) {
+		wlr_log_errno(WLR_ERROR, "drmModeCreatePropertyBlob failed");
+		return false;
+	}
+
+	// TODO: perform a test-only commit
+	// TODO: change wlr_output semantics to only apply the mode on commit
+
+	connector_set_crtc(conn, crtc);
+
+	struct glider_drm_prop *mode_id = &crtc->props[GLIDER_DRM_CRTC_MODE_ID];
+	if (mode_id->pending != 0 && mode_id->pending != mode_id->initial) {
+		if (drmModeDestroyPropertyBlob(conn->device->fd,
+				mode_id->pending) != 0) {
+			wlr_log_errno(WLR_ERROR, "drmModeDestroyPropertyBlob failed");
+			return false;
+		}
+	}
+	mode_id->pending = mode_blob;
+
+	return connector_commit(conn, DRM_MODE_ATOMIC_ALLOW_MODESET);
+}
+
 static bool output_attach_render(struct wlr_output *output, int *buffer_age) {
 	return false;
 }
@@ -26,11 +111,13 @@ static void output_destroy(struct wlr_output *output) {
 	}
 	free(conn->modes);
 	conn->modes = NULL;
+	conn->modes_len = 0;
 
 	memset(&conn->output, 0, sizeof(struct wlr_output));
 }
 
 static const struct wlr_output_impl output_impl = {
+	.set_mode = output_set_mode,
 	.attach_render = output_attach_render,
 	.commit = output_commit,
 	.destroy = output_destroy,
@@ -62,6 +149,13 @@ struct glider_drm_connector *create_drm_connector(
 
 	conn->device = device;
 	conn->id = id;
+
+	if (!init_drm_props(conn->props, glider_drm_connector_props,
+			GLIDER_DRM_CONNECTOR_PROP_COUNT, device, id,
+			DRM_MODE_OBJECT_CONNECTOR)) {
+		free(conn);
+		return false;
+	}
 
 	// Populate the connector with properties that don't change across hotplugs
 	drmModeConnector *drm_conn = drmModeGetConnectorCurrent(device->fd, id);

@@ -6,6 +6,11 @@ bool init_drm_crtc(struct glider_drm_crtc *crtc,
 	crtc->device = device;
 	crtc->id = id;
 
+	if (!init_drm_props(crtc->props, glider_drm_crtc_props,
+			GLIDER_DRM_CRTC_PROP_COUNT, device, id, DRM_MODE_OBJECT_CRTC)) {
+		return false;
+	}
+
 	crtc->crtc = drmModeGetCrtc(device->fd, id);
 	if (crtc->crtc == NULL) {
 		return false;

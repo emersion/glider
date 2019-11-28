@@ -3,7 +3,15 @@
 #include <wlr/util/log.h>
 #include "backend/backend.h"
 
-const char *glider_drm_plane_prop_names[GLIDER_DRM_PLANE_PROP_COUNT] = {
+const char *glider_drm_connector_props[GLIDER_DRM_CONNECTOR_PROP_COUNT] = {
+	[GLIDER_DRM_CONNECTOR_CRTC_ID] = "CRTC_ID",
+};
+
+const char *glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT] = {
+	[GLIDER_DRM_CRTC_MODE_ID] = "MODE_ID",
+};
+
+const char *glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT] = {
 	[GLIDER_DRM_PLANE_TYPE] = "type",
 };
 
@@ -26,22 +34,22 @@ bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 		uint32_t id = obj_props->props[i];
 		uint64_t value = obj_props->prop_values[i];
 
-		drmModePropertyRes *prop = drmModeGetProperty(device->fd, id);
-		if (prop == NULL) {
+		drmModePropertyRes *drm_prop = drmModeGetProperty(device->fd, id);
+		if (drm_prop == NULL) {
 			wlr_log_errno(WLR_ERROR, "drmModeGetProperty failed");
 			drmModeFreeObjectProperties(obj_props);
 			return false;
 		}
 
-		const char **name = lfind(prop->name, prop_names, &props_len,
+		const char **name = lfind(drm_prop->name, prop_names, &props_len,
 			sizeof(prop_names[0]), prop_cmp);
 		if (name != NULL) {
-			size_t prop_idx = prop_names - name;
-			props[prop_idx].id = id;
-			props[prop_idx].current = props[prop_idx].pending = value;
+			struct glider_drm_prop *prop = &props[prop_names - name];
+			prop->id = id;
+			prop->current = prop->pending = prop->initial = value;
 		}
 
-		drmModeFreeProperty(prop);
+		drmModeFreeProperty(drm_prop);
 	}
 
 	drmModeFreeObjectProperties(obj_props);
@@ -54,5 +62,21 @@ bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 		}
 	}
 
+	return true;
+}
+
+bool apply_drm_props(struct glider_drm_prop *props, size_t props_len,
+		uint32_t obj_id, drmModeAtomicReq *req) {
+	for (size_t i = 0; i < props_len; i++) {
+		struct glider_drm_prop *prop = &props[i];
+		if (prop->pending == prop->current) {
+			continue;
+		}
+		int ret = drmModeAtomicAddProperty(req, obj_id,
+			prop->id, prop->pending);
+		if (ret != 0) {
+			return false;
+		}
+	}
 	return true;
 }
