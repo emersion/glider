@@ -7,6 +7,11 @@
 struct glider_drm_backend;
 struct glider_drm_device;
 
+struct glider_drm_plane {
+	struct glider_drm_device *device;
+	uint32_t id;
+};
+
 struct glider_drm_crtc {
 	struct glider_drm_device *device;
 	uint32_t id;
@@ -20,6 +25,9 @@ struct glider_drm_device {
 
 	struct glider_drm_crtc *crtcs;
 	size_t crtcs_len;
+
+	struct glider_drm_plane *planes;
+	size_t planes_len;
 
 	struct liftoff_device *liftoff_device;
 
@@ -49,5 +57,9 @@ void finish_drm_device(struct glider_drm_device *device);
 bool init_drm_crtc(struct glider_drm_crtc *crtc,
 	struct glider_drm_device *device, uint32_t id);
 void finish_drm_crtc(struct glider_drm_crtc *crtc);
+
+bool init_drm_plane(struct glider_drm_plane *plane,
+	struct glider_drm_device *device, uint32_t id);
+void finish_drm_plane(struct glider_drm_plane *plane);
 
 #endif

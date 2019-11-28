@@ -13,8 +13,7 @@ static bool get_drm_resources(struct glider_drm_device *device) {
 
 	device->crtcs = calloc(res->count_crtcs, sizeof(struct glider_drm_crtc));
 	if (device->crtcs == NULL) {
-		drmModeFreeResources(res);
-		return false;
+		goto error_crtc;
 	}
 
 	for (int i = 0; i < res->count_crtcs; i++) {
@@ -24,9 +23,33 @@ static bool get_drm_resources(struct glider_drm_device *device) {
 		device->crtcs_len++;
 	}
 
+	drmModePlaneRes *plane_res = drmModeGetPlaneResources(device->fd);
+	if (plane_res == NULL) {
+		goto error_crtc;
+	}
+
+	device->planes =
+		calloc(plane_res->count_planes, sizeof(struct glider_drm_plane));
+	if (device->planes == NULL) {
+		goto error_plane;
+	}
+
+	for (size_t i = 0; i < plane_res->count_planes; i++) {
+		if (!init_drm_plane(&device->planes[i], device, plane_res->planes[i])) {
+			goto error_plane;
+		}
+		device->planes_len++;
+	}
+
+	drmModeFreePlaneResources(plane_res);
 	drmModeFreeResources(res);
 	return true;
 
+error_plane:
+	for (size_t i = 0; i < device->planes_len; i++) {
+		finish_drm_plane(&device->planes[i]);
+	}
+	drmModeFreePlaneResources(plane_res);
 error_crtc:
 	for (size_t i = 0; i < device->crtcs_len; i++) {
 		finish_drm_crtc(&device->crtcs[i]);
@@ -80,6 +103,9 @@ bool init_drm_device(struct glider_drm_device *device,
 
 void finish_drm_device(struct glider_drm_device *device) {
 	wl_list_remove(&device->invalidated.link);
+	for (size_t i = 0; i < device->crtcs_len; i++) {
+		finish_drm_crtc(&device->crtcs[i]);
+	}
 	liftoff_device_destroy(device->liftoff_device);
 	wlr_session_close_file(device->backend->session, device->fd);
 }
