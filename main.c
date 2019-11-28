@@ -1,5 +1,6 @@
 #include <wlr/util/log.h>
 #include <wlr/backend/multi.h>
+#include "allocator.h"
 #include "backend/backend.h"
 #include "server.h"
 
@@ -28,10 +29,17 @@ int main(int argc, char *argv[]) {
 	}
 	wlr_multi_backend_add(server.backend, drm_backend);
 
+	int fd = glider_drm_backend_get_primary_fd(drm_backend);
+	struct glider_allocator *alloc = glider_gbm_allocator_create(fd);
+	if (alloc == NULL) {
+		return 1;
+	}
+
 	if (!wlr_backend_start(server.backend)) {
 		return 1;
 	}
 
+	glider_allocator_destroy(alloc);
 	wl_display_destroy_clients(server.display);
 	wl_display_destroy(server.display);
 	return 0;

@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <wlr/util/log.h>
 #include "backend/backend.h"
 
 static const struct wlr_backend_impl backend_impl;
@@ -71,6 +72,11 @@ struct wlr_backend *glider_drm_backend_create(struct wl_display *display,
 	int fds[sizeof(backend->devices) / sizeof(backend->devices[0])];
 	size_t fds_len = wlr_session_find_gpus(session,
 		sizeof(fds) / sizeof(fds[0]), fds);
+	if (fds_len == 0) {
+		wlr_log(WLR_ERROR, "Session returned zero GPUs");
+		goto error_device;
+	}
+
 	for (size_t i = 0; i < fds_len; i++) {
 		if (!init_drm_device(&backend->devices[i], backend, fds[i])) {
 			goto error_device;
@@ -97,4 +103,10 @@ error_device:
 		finish_drm_device(&backend->devices[i]);
 	}
 	return NULL;
+}
+
+int glider_drm_backend_get_primary_fd(struct wlr_backend *wlr_backend) {
+	struct glider_drm_backend *backend =
+		get_drm_backend_from_backend(wlr_backend);
+	return backend->devices[0].fd;
 }

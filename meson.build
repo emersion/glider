@@ -23,6 +23,7 @@ add_project_arguments(cc.get_supported_arguments([
 
 wayland_server = dependency('wayland-server')
 liftoff = dependency('liftoff', fallback: ['libliftoff', 'liftoff'])
+gbm = dependency('gbm')
 
 # Try first to find wlroots as a subproject, then as a system dependency
 wlroots_version = ['>=0.8.1', '<0.9.0']
@@ -43,6 +44,7 @@ glider_inc = include_directories('include')
 executable(
 	'glider',
 	files(
+		'allocator.c',
 		'backend/backend.c',
 		'backend/crtc.c',
 		'backend/device.c',
@@ -51,6 +53,7 @@ executable(
 		'main.c',
 	),
 	dependencies: [
+		gbm,
 		liftoff,
 		wlroots,
 	],

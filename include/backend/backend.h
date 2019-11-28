@@ -68,6 +68,7 @@ struct glider_drm_backend {
 
 struct wlr_backend *glider_drm_backend_create(struct wl_display *display,
 	struct wlr_session *session);
+int glider_drm_backend_get_primary_fd(struct wlr_backend *backend);
 
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
