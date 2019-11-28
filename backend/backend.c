@@ -28,17 +28,9 @@ static void backend_destroy(struct wlr_backend *wlr_backend) {
 	free(backend);
 }
 
-static struct wlr_renderer *backend_get_renderer(
-		struct wlr_backend *wlr_backend) {
-	struct glider_drm_backend *backend =
-		get_drm_backend_from_backend(wlr_backend);
-	return backend->renderer;
-}
-
 static const struct wlr_backend_impl backend_impl = {
 	.start = backend_start,
 	.destroy = backend_destroy,
-	.get_renderer = backend_get_renderer,
 };
 
 static void handle_display_destroy(struct wl_listener *listener, void *data) {

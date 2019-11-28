@@ -57,7 +57,6 @@ struct glider_drm_backend {
 	struct wlr_backend base;
 
 	struct wlr_session *session;
-	struct wlr_renderer *renderer;
 	struct glider_drm_device devices[8];
 	size_t devices_len;
 
