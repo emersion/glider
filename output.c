@@ -1,11 +1,13 @@
 #include <assert.h>
 #include <drm_fourcc.h>
 #include <stdlib.h>
+#include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/util/log.h>
 #include "allocator.h"
-#include "server.h"
 #include "backend/backend.h"
+#include "renderer.h"
+#include "server.h"
 
 static struct glider_buffer *output_next_buffer(struct glider_output *output) {
 	struct glider_output_buffer *free_buf = NULL;
@@ -79,5 +81,16 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	output_next_buffer(output);
+	struct glider_buffer *buf = output_next_buffer(output);
+	if (buf == NULL) {
+		wlr_log(WLR_ERROR, "Failed to get next buffer");
+		return;
+	}
+	if (!glider_renderer_begin(server->renderer, buf)) {
+		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
+		return;
+	}
+	wlr_renderer_clear(server->renderer->renderer,
+		(float[4]){ 1.0, 0.0, 0.0, 1.0 });
+	glider_renderer_end(server->renderer);
 }

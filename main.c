@@ -2,6 +2,7 @@
 #include <wlr/backend/multi.h>
 #include "allocator.h"
 #include "backend/backend.h"
+#include "renderer.h"
 #include "server.h"
 
 int main(int argc, char *argv[]) {
@@ -36,6 +37,11 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	server.renderer = glider_gbm_renderer_create(server.allocator);
+	if (server.renderer == NULL) {
+		return 1;
+	}
+
 	server.new_output.notify = handle_new_output;
 	wl_signal_add(&server.backend->events.new_output, &server.new_output);
 
@@ -43,6 +49,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	glider_renderer_destroy(server.renderer);
 	wl_display_destroy_clients(server.display);
 	wl_display_destroy(server.display);
 	glider_allocator_destroy(server.allocator);

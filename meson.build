@@ -24,6 +24,8 @@ add_project_arguments(cc.get_supported_arguments([
 wayland_server = dependency('wayland-server')
 liftoff = dependency('liftoff', fallback: ['libliftoff', 'liftoff'])
 gbm = dependency('gbm')
+egl = dependency('egl')
+glesv2 = dependency('glesv2')
 
 # Try first to find wlroots as a subproject, then as a system dependency
 wlroots_version = ['>=0.8.1', '<0.9.0']
@@ -53,9 +55,12 @@ executable(
 		'backend/prop.c',
 		'main.c',
 		'output.c',
+		'renderer.c',
 	),
 	dependencies: [
+		egl,
 		gbm,
+		glesv2,
 		liftoff,
 		wlroots,
 	],
