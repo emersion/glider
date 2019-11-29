@@ -6,6 +6,7 @@
 #include <wlr/interfaces/wlr_output.h>
 #include <wlr/render/drm_format_set.h>
 #include <xf86drmMode.h>
+#include "allocator.h"
 
 struct glider_drm_backend;
 struct glider_drm_device;
@@ -32,6 +33,17 @@ extern const char *glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT];
 struct glider_drm_prop {
 	uint32_t id;
 	uint64_t current, pending, initial;
+};
+
+struct glider_drm_buffer {
+	struct glider_drm_device *device;
+	struct glider_buffer *buffer;
+	struct wl_list link;
+
+	int width, height;
+	uint32_t id;
+
+	// TODO: destroy listener
 };
 
 struct glider_drm_plane {
@@ -78,6 +90,7 @@ struct glider_drm_device {
 	struct glider_drm_backend *backend;
 	int fd;
 
+	struct wl_list buffers;
 	struct wl_list connectors;
 
 	struct glider_drm_crtc *crtcs;
@@ -110,11 +123,18 @@ int glider_drm_backend_get_primary_fd(struct wlr_backend *backend);
 
 const struct wlr_drm_format_set *glider_drm_connector_get_primary_formats(
 	struct wlr_output *output);
+struct liftoff_output *glider_drm_connector_get_liftoff_output(
+	struct wlr_output *output);
+bool glider_drm_connector_attach(struct wlr_output *output,
+	struct glider_buffer *buffer, struct liftoff_layer *layer);
+bool glider_drm_connector_commit(struct wlr_output *output);
 
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
 void finish_drm_device(struct glider_drm_device *device);
 bool refresh_drm_device(struct glider_drm_device *device);
+struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
+	struct glider_buffer *buffer);
 
 struct glider_drm_connector *create_drm_connector(
 	struct glider_drm_device *device, uint32_t id);

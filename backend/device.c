@@ -93,6 +93,7 @@ bool init_drm_device(struct glider_drm_device *device,
 	device->fd = fd;
 
 	wl_list_init(&device->connectors);
+	wl_list_init(&device->buffers);
 
 	if (drmSetClientCap(device->fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1) != 0) {
 		wlr_log(WLR_ERROR, "DRM_CLIENT_CAP_UNIVERSAL_PLANES unsupported");
@@ -126,7 +127,14 @@ bool init_drm_device(struct glider_drm_device *device,
 	return true;
 }
 
+static void destroy_drm_buffer(struct glider_drm_buffer *drm_buffer);
+
 void finish_drm_device(struct glider_drm_device *device) {
+	struct glider_drm_buffer *buf, *buf_tmp;
+	wl_list_for_each_safe(buf, buf_tmp, &device->buffers, link) {
+		destroy_drm_buffer(buf);
+	}
+
 	struct glider_drm_connector *conn, *conn_tmp;
 	wl_list_for_each_safe(conn, conn_tmp, &device->connectors, link) {
 		destroy_drm_connector(conn);
@@ -204,4 +212,70 @@ bool refresh_drm_device(struct glider_drm_device *device) {
 error:
 	drmModeFreeResources(res);
 	return false;
+}
+
+static uint32_t import_dmabuf(struct glider_drm_device *device,
+		struct wlr_dmabuf_attributes *dmabuf) {
+	uint32_t handles[4] = {0};
+	int i;
+	for (i = 0; i < dmabuf->n_planes; i++) {
+		if (drmPrimeFDToHandle(device->fd, dmabuf->fd[i], &handles[i]) != 0) {
+			wlr_log_errno(WLR_ERROR, "drmPrimeFDToHandle failed");
+			return 0;
+		}
+	}
+
+	// TODO: drmModeAddFB2WithModifiers
+	uint32_t fb_id = 0;
+	int ret = drmModeAddFB2(device->fd, dmabuf->width, dmabuf->height,
+		dmabuf->format, handles, dmabuf->stride, dmabuf->offset, &fb_id, 0);
+	if (ret != 0) {
+		wlr_log_errno(WLR_ERROR, "drmModeAddFB2 failed");
+		return 0;
+	}
+
+	return fb_id;
+}
+
+struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
+		struct glider_buffer *buffer) {
+	struct glider_drm_buffer *drm_buffer;
+	wl_list_for_each(drm_buffer, &device->buffers, link) {
+		if (drm_buffer->buffer == buffer) {
+			return drm_buffer;
+		}
+	}
+
+	drm_buffer = calloc(1, sizeof(*drm_buffer));
+	if (drm_buffer == NULL) {
+		return NULL;
+	}
+
+	struct wlr_dmabuf_attributes dmabuf;
+	if (!glider_buffer_get_dmabuf(buffer, &dmabuf)) {
+		free(drm_buffer);
+		return 0;
+	}
+
+	drm_buffer->id = import_dmabuf(device, &dmabuf);
+	if (drm_buffer->id == 0) {
+		free(drm_buffer);
+		return NULL;
+	}
+
+	drm_buffer->buffer = buffer;
+	drm_buffer->device = device;
+	drm_buffer->width = dmabuf.width;
+	drm_buffer->height = dmabuf.height;
+	wl_list_insert(&device->buffers, &drm_buffer->link);
+
+	return drm_buffer;
+}
+
+static void destroy_drm_buffer(struct glider_drm_buffer *buffer) {
+	if (drmModeRmFB(buffer->device->fd, buffer->id) != 0) {
+		wlr_log_errno(WLR_ERROR, "drmModeRmFB failed");
+	}
+	wl_list_remove(&buffer->link);
+	free(buffer);
 }

@@ -53,6 +53,11 @@ error:
 	return false;
 }
 
+bool glider_drm_connector_commit(struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	return connector_commit(conn, 0);
+}
+
 static struct glider_drm_crtc *connector_pick_crtc(
 		struct glider_drm_connector *conn) {
 	struct glider_drm_device *device = conn->device;
@@ -298,4 +303,30 @@ const struct wlr_drm_format_set *glider_drm_connector_get_primary_formats(
 		return NULL;
 	}
 	return &conn->crtc->primary_plane->formats;
+}
+
+struct liftoff_output *glider_drm_connector_get_liftoff_output(
+		struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	if (conn->crtc == NULL) {
+		return NULL;
+	}
+	return conn->crtc->liftoff_output;
+}
+
+bool glider_drm_connector_attach(struct wlr_output *output,
+		struct glider_buffer *buffer, struct liftoff_layer *layer) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	if (conn->crtc == NULL) {
+		return false;
+	}
+
+	struct glider_drm_buffer *drm_buffer =
+		attach_drm_buffer(conn->device, buffer);
+	if (drm_buffer == NULL) {
+		return false;
+	}
+
+	liftoff_layer_set_property(layer, "FB_ID", drm_buffer->id);
+	return true;
 }
