@@ -15,6 +15,9 @@ static struct glider_drm_connector *get_drm_connector_from_output(
 
 static bool connector_commit(struct glider_drm_connector *conn,
 		uint32_t flags) {
+	wlr_log(WLR_DEBUG, "Performing atomic commit on connector %"PRIu32,
+		conn->id);
+
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
 	if (req == NULL) {
 		return false;
@@ -36,12 +39,12 @@ static bool connector_commit(struct glider_drm_connector *conn,
 
 	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, NULL);
 	drmModeAtomicFree(req);
+	if (ret != 0) {
+		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
+	}
 	/*if (ret == 0 && !(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
 		commit_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT);
 		commit_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT);
-	} else {
-		rollback_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT);
-		rollback_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT);
 	}*/
 	return ret == 0;
 
