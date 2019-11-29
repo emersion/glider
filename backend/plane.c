@@ -1,3 +1,4 @@
+#include <drm_fourcc.h>
 #include "backend/backend.h"
 
 bool init_drm_plane(struct glider_drm_plane *plane,
@@ -16,9 +17,16 @@ bool init_drm_plane(struct glider_drm_plane *plane,
 		return false;
 	}
 
+	for (size_t i = 0; i < plane->plane->count_formats; i++) {
+		wlr_drm_format_set_add(&plane->formats, plane->plane->formats[i],
+			DRM_FORMAT_MOD_INVALID);
+	}
+	// TODO: IN_FORMATS prop
+
 	return true;
 }
 
 void finish_drm_plane(struct glider_drm_plane *plane) {
+	wlr_drm_format_set_finish(&plane->formats);
 	drmModeFreePlane(plane->plane);
 }

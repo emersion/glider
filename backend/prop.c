@@ -74,7 +74,8 @@ bool apply_drm_props(struct glider_drm_prop *props, size_t props_len,
 		}
 		int ret = drmModeAtomicAddProperty(req, obj_id,
 			prop->id, prop->pending);
-		if (ret != 0) {
+		if (ret < 0) {
+			wlr_log(WLR_ERROR, "drmModeAtomicAddProperty failed");
 			return false;
 		}
 	}

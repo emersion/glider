@@ -12,6 +12,7 @@ struct glider_allocator *glider_gbm_allocator_create(int fd) {
 
 	alloc->gbm_device = gbm_create_device(fd);
 	if (alloc->gbm_device == NULL) {
+		wlr_log(WLR_ERROR, "gbm_create_device failed");
 		free(alloc);
 		return NULL;
 	}
@@ -30,6 +31,7 @@ struct glider_buffer *glider_allocator_create_buffer(
 	struct gbm_bo *bo = gbm_bo_create(alloc->gbm_device, width, height, format,
 		GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 	if (bo == NULL) {
+		wlr_log(WLR_ERROR, "gbm_bo_create failed");
 		return NULL;
 	}
 
@@ -43,6 +45,9 @@ struct glider_buffer *glider_allocator_create_buffer(
 }
 
 void glider_buffer_destroy(struct glider_buffer *buffer) {
+	if (buffer == NULL) {
+		return;
+	}
 	if (buffer->dmabuf_attribs.n_planes > 0) {
 		wlr_dmabuf_attributes_finish(&buffer->dmabuf_attribs);
 	}

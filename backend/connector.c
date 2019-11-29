@@ -113,7 +113,13 @@ static bool output_set_mode(struct wlr_output *output,
 	}
 	mode_id->pending = mode_blob;
 
-	return connector_commit(conn, DRM_MODE_ATOMIC_ALLOW_MODESET);
+	if (!connector_commit(conn, DRM_MODE_ATOMIC_ALLOW_MODESET)) {
+		return false;
+	}
+
+	wlr_output_update_mode(&conn->output, wlr_mode);
+	wlr_output_update_enabled(&conn->output, true);
+	return true;
 }
 
 static bool output_attach_render(struct wlr_output *output, int *buffer_age) {
@@ -283,4 +289,13 @@ bool refresh_drm_connector(struct glider_drm_connector *conn) {
 
 	drmModeFreeConnector(drm_conn);
 	return true;
+}
+
+const struct wlr_drm_format_set *glider_drm_connector_get_primary_formats(
+		struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	if (conn->crtc == NULL) {
+		return NULL;
+	}
+	return &conn->crtc->primary_plane->formats;
 }

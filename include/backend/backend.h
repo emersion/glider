@@ -4,6 +4,7 @@
 #include <libliftoff.h>
 #include <wlr/backend/interface.h>
 #include <wlr/interfaces/wlr_output.h>
+#include <wlr/render/drm_format_set.h>
 #include <xf86drmMode.h>
 
 struct glider_drm_backend;
@@ -38,6 +39,7 @@ struct glider_drm_plane {
 	uint32_t id;
 	drmModePlane *plane;
 	struct glider_drm_prop props[GLIDER_DRM_PLANE_PROP_COUNT];
+	struct wlr_drm_format_set formats;
 };
 
 struct glider_drm_crtc {
@@ -105,6 +107,9 @@ struct glider_drm_backend {
 struct wlr_backend *glider_drm_backend_create(struct wl_display *display,
 	struct wlr_session *session);
 int glider_drm_backend_get_primary_fd(struct wlr_backend *backend);
+
+const struct wlr_drm_format_set *glider_drm_connector_get_primary_formats(
+	struct wlr_output *output);
 
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
