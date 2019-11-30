@@ -87,6 +87,46 @@ static void handle_invalidated(struct wl_listener *listener, void *data) {
 	refresh_drm_device(device);
 }
 
+static struct glider_drm_connector *connector_from_crtc_id(
+		struct glider_drm_device *device, uint32_t crtc_id) {
+	struct glider_drm_connector *conn;
+	wl_list_for_each(conn, &device->connectors, link) {
+		if (conn->crtc != NULL && conn->crtc->id == crtc_id) {
+			return conn;
+		}
+	}
+	return NULL;
+}
+
+static void handle_page_flip(int fd, unsigned seq,
+		unsigned tv_sec, unsigned tv_usec, unsigned crtc_id, void *data) {
+	struct glider_drm_device *device = data;
+
+	struct glider_drm_connector *conn = connector_from_crtc_id(device, crtc_id);
+	if (conn == NULL) {
+		wlr_log(WLR_DEBUG, "Received page-flip for disabled CRTC %"PRIu32,
+			crtc_id);
+		return;
+	}
+
+	struct timespec t = {
+		.tv_sec = tv_sec,
+		.tv_nsec = tv_usec * 1000,
+	};
+
+	handle_drm_connector_page_flip(conn, seq, &t);
+}
+
+static int handle_drm_event(int fd, uint32_t mask, void *data) {
+	drmEventContext event = {
+		.version = 3,
+		.page_flip_handler2 = handle_page_flip,
+	};
+
+	drmHandleEvent(fd, &event);
+	return 1;
+}
+
 bool init_drm_device(struct glider_drm_device *device,
 		struct glider_drm_backend *backend, int fd) {
 	device->backend = backend;
@@ -94,6 +134,7 @@ bool init_drm_device(struct glider_drm_device *device,
 
 	wl_list_init(&device->connectors);
 	wl_list_init(&device->buffers);
+	wl_list_init(&device->invalidated.link);
 
 	if (drmSetClientCap(device->fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1) != 0) {
 		wlr_log(WLR_ERROR, "DRM_CLIENT_CAP_UNIVERSAL_PLANES unsupported");
@@ -121,6 +162,16 @@ bool init_drm_device(struct glider_drm_device *device,
 		return false;
 	}
 
+	struct wl_event_loop *event_loop =
+		wl_display_get_event_loop(backend->display);
+	device->event_source = wl_event_loop_add_fd(event_loop, device->fd,
+		WL_EVENT_READABLE, handle_drm_event, NULL);
+	if (device->event_source == NULL) {
+		wlr_log(WLR_ERROR, "wl_event_loop_add_fd failed");
+		finish_drm_device(device);
+		return false;
+	}
+
 	device->invalidated.notify = handle_invalidated;
 	wlr_session_signal_add(backend->session, fd, &device->invalidated);
 
@@ -138,6 +189,10 @@ void finish_drm_device(struct glider_drm_device *device) {
 	struct glider_drm_connector *conn, *conn_tmp;
 	wl_list_for_each_safe(conn, conn_tmp, &device->connectors, link) {
 		destroy_drm_connector(conn);
+	}
+
+	if (device->event_source != NULL) {
+		wl_event_source_remove(device->event_source);
 	}
 
 	wl_list_remove(&device->invalidated.link);

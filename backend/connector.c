@@ -37,7 +37,7 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		}
 	}
 
-	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, NULL);
+	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, conn->device);
 	drmModeAtomicFree(req);
 	if (ret != 0) {
 		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
@@ -55,7 +55,7 @@ error:
 
 bool glider_drm_connector_commit(struct wlr_output *output) {
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	return connector_commit(conn, 0);
+	return connector_commit(conn, DRM_MODE_PAGE_FLIP_EVENT);
 }
 
 static struct glider_drm_crtc *connector_pick_crtc(
@@ -329,4 +329,27 @@ bool glider_drm_connector_attach(struct wlr_output *output,
 
 	liftoff_layer_set_property(layer, "FB_ID", drm_buffer->id);
 	return true;
+}
+
+static int mhz_to_nsec(int mhz) {
+	return 1000000000000LL / mhz;
+}
+
+void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
+		unsigned seq, struct timespec *t) {
+	uint32_t present_flags = WLR_OUTPUT_PRESENT_VSYNC |
+		WLR_OUTPUT_PRESENT_HW_CLOCK | WLR_OUTPUT_PRESENT_HW_COMPLETION;
+	// TODO: WLR_OUTPUT_PRESENT_ZERO_COPY
+	struct wlr_output_event_present present_event = {
+		/* The DRM backend guarantees that the presentation event will be for
+		 * the last submitted frame. */
+		.commit_seq = conn->output.commit_seq,
+		.when = t,
+		.seq = seq,
+		.refresh = mhz_to_nsec(conn->output.refresh),
+		.flags = present_flags,
+	};
+	wlr_output_send_present(&conn->output, &present_event);
+
+	wlr_output_send_frame(&conn->output);
 }

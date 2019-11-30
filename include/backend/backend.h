@@ -2,6 +2,7 @@
 #define GLIDER_BACKEND_BACKEND_H
 
 #include <libliftoff.h>
+#include <time.h>
 #include <wlr/backend/interface.h>
 #include <wlr/interfaces/wlr_output.h>
 #include <wlr/render/drm_format_set.h>
@@ -89,6 +90,7 @@ struct glider_drm_connector {
 struct glider_drm_device {
 	struct glider_drm_backend *backend;
 	int fd;
+	struct wl_event_source *event_source;
 
 	struct wl_list buffers;
 	struct wl_list connectors;
@@ -140,6 +142,8 @@ struct glider_drm_connector *create_drm_connector(
 	struct glider_drm_device *device, uint32_t id);
 void destroy_drm_connector(struct glider_drm_connector *conn);
 bool refresh_drm_connector(struct glider_drm_connector *conn);
+void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
+	unsigned seq, struct timespec *t);
 
 bool init_drm_crtc(struct glider_drm_crtc *crtc,
 	struct glider_drm_device *device, uint32_t id);
