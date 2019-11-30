@@ -12,6 +12,8 @@ struct glider_buffer {
 	uint32_t format;
 	uint64_t modifier;
 
+	size_t n_locks;
+
 	struct {
 		struct wl_signal release;
 	} events;
@@ -33,6 +35,8 @@ struct glider_buffer *glider_allocator_create_buffer(
 void glider_buffer_destroy(struct glider_buffer *buffer);
 bool glider_buffer_get_dmabuf(struct glider_buffer *buffer,
 	struct wlr_dmabuf_attributes *attribs);
+void glider_buffer_lock(struct glider_buffer *buffer);
+void glider_buffer_unlock(struct glider_buffer *buffer);
 
 struct glider_allocator *glider_gbm_allocator_create(int render_fd);
 

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <drm_fourcc.h>
 #include <stdlib.h>
 #include <string.h>
@@ -111,4 +112,16 @@ bool glider_buffer_get_dmabuf(struct glider_buffer *buffer,
 	memcpy(attribs, &buffer->dmabuf_attribs,
 		sizeof(struct wlr_dmabuf_attributes));
 	return true;
+}
+
+void glider_buffer_lock(struct glider_buffer *buffer) {
+	buffer->n_locks++;
+}
+
+void glider_buffer_unlock(struct glider_buffer *buffer) {
+	assert(buffer->n_locks > 0);
+	buffer->n_locks--;
+	if (buffer->n_locks == 0) {
+		wl_signal_emit(&buffer->events.release, NULL);
+	}
 }

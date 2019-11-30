@@ -143,7 +143,7 @@ static void output_destroy(struct wlr_output *output) {
 		if (buf->locked && buf->connector == conn) {
 			buf->locked = false;
 			buf->connector = NULL;
-			wl_signal_emit(&buf->buffer->events.release, NULL);
+			glider_buffer_unlock(buf->buffer);
 		}
 	}
 
@@ -346,6 +346,7 @@ bool glider_drm_connector_attach(struct wlr_output *output,
 	// that's not the case, do not lock the buffer.
 	drm_buffer->locked = true;
 	drm_buffer->connector = conn;
+	glider_buffer_lock(drm_buffer->buffer);
 	return true;
 }
 
@@ -361,7 +362,7 @@ void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 			if (buf->presented) {
 				buf->locked = buf->presented = false;
 				buf->connector = NULL;
-				wl_signal_emit(&buf->buffer->events.release, NULL);
+				glider_buffer_unlock(buf->buffer);
 			} else {
 				buf->presented = true;
 			}
