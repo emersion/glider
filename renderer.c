@@ -72,6 +72,9 @@ static struct glider_renderer_buffer *renderer_buffer_create(
 		return NULL;
 	}
 
+	renderer_buffer->buffer = buffer;
+	renderer_buffer->renderer = renderer;
+
 	wlr_log(WLR_DEBUG, "Creating GL FBO for GBM buffer");
 
 	struct wlr_dmabuf_attributes dmabuf;
@@ -110,7 +113,6 @@ static struct glider_renderer_buffer *renderer_buffer_create(
 		goto error;
 	}
 
-	renderer_buffer->renderer = renderer;
 	renderer_buffer->width = dmabuf.width;
 	renderer_buffer->height = dmabuf.height;
 	wl_list_insert(&renderer->buffers, &renderer_buffer->link);
