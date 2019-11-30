@@ -13,7 +13,6 @@ struct glider_renderer_buffer {
 	struct glider_renderer *renderer;
 	struct wl_list link;
 
-	int width, height;
 	EGLImageKHR egl_image;
 	GLuint gl_texture;
 	GLuint gl_fbo;

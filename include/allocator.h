@@ -8,12 +8,16 @@
 
 // TODO: turn this into an interface
 struct glider_buffer {
-	struct gbm_bo *gbm_bo;
-	struct wlr_dmabuf_attributes dmabuf_attribs;
+	int width, height;
+	uint32_t format;
+	uint64_t modifier;
 
 	struct {
 		struct wl_signal release;
 	} events;
+
+	struct gbm_bo *gbm_bo;
+	struct wlr_dmabuf_attributes dmabuf_attribs;
 };
 
 // TODO: turn this into an interface

@@ -41,7 +41,6 @@ struct glider_drm_buffer {
 	struct glider_buffer *buffer;
 	struct wl_list link;
 
-	int width, height;
 	uint32_t id;
 
 	bool locked;

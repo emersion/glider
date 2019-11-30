@@ -1,3 +1,4 @@
+#include <drm_fourcc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -28,6 +29,7 @@ void glider_allocator_destroy(struct glider_allocator *alloc) {
 struct glider_buffer *glider_allocator_create_buffer(
 		struct glider_allocator *alloc, int width, int height, uint32_t format,
 		const uint64_t *modifiers, size_t modifiers_len) {
+	// TODO: add support for modifiers
 	struct gbm_bo *bo = gbm_bo_create(alloc->gbm_device, width, height, format,
 		GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
 	if (bo == NULL) {
@@ -41,6 +43,10 @@ struct glider_buffer *glider_allocator_create_buffer(
 		return NULL;
 	}
 	buffer->gbm_bo = bo;
+	buffer->width = width;
+	buffer->height = height;
+	buffer->format = format;
+	buffer->modifier = DRM_FORMAT_MOD_INVALID;
 	wl_signal_init(&buffer->events.release);
 	return buffer;
 }

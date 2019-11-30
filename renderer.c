@@ -113,8 +113,6 @@ static struct glider_renderer_buffer *renderer_buffer_create(
 		goto error;
 	}
 
-	renderer_buffer->width = dmabuf.width;
-	renderer_buffer->height = dmabuf.height;
 	wl_list_insert(&renderer->buffers, &renderer_buffer->link);
 
 	return renderer_buffer;
@@ -142,8 +140,8 @@ bool glider_renderer_begin(struct glider_renderer *renderer,
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer_buffer->gl_fbo);
-	wlr_renderer_begin(renderer->renderer, renderer_buffer->width,
-		renderer_buffer->height);
+	wlr_renderer_begin(renderer->renderer, renderer_buffer->buffer->width,
+		renderer_buffer->buffer->height);
 	renderer->current_buffer = renderer_buffer;
 
 	return true;

@@ -306,6 +306,9 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 		return NULL;
 	}
 
+	drm_buffer->buffer = buffer;
+	drm_buffer->device = device;
+
 	struct wlr_dmabuf_attributes dmabuf;
 	if (!glider_buffer_get_dmabuf(buffer, &dmabuf)) {
 		free(drm_buffer);
@@ -318,10 +321,6 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 		return NULL;
 	}
 
-	drm_buffer->buffer = buffer;
-	drm_buffer->device = device;
-	drm_buffer->width = dmabuf.width;
-	drm_buffer->height = dmabuf.height;
 	wl_list_insert(&device->buffers, &drm_buffer->link);
 
 	return drm_buffer;
