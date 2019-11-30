@@ -149,6 +149,8 @@ bool glider_renderer_begin(struct glider_renderer *renderer,
 
 void glider_renderer_end(struct glider_renderer *renderer) {
 	assert(renderer->current_buffer != NULL);
+	glFlush();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	wlr_renderer_end(renderer->renderer);
 	renderer->current_buffer = NULL;
 }
