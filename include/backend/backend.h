@@ -44,6 +44,10 @@ struct glider_drm_buffer {
 	int width, height;
 	uint32_t id;
 
+	bool locked;
+	// TODO: allow a single buffer to be displayed on multiple CRTCs
+	struct glider_drm_connector *connector;
+
 	// TODO: destroy listener
 };
 

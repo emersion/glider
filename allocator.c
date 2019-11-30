@@ -41,6 +41,7 @@ struct glider_buffer *glider_allocator_create_buffer(
 		return NULL;
 	}
 	buffer->gbm_bo = bo;
+	wl_signal_init(&buffer->events.release);
 	return buffer;
 }
 

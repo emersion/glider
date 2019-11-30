@@ -8,6 +8,8 @@
 struct glider_output_buffer {
 	struct glider_buffer *buffer;
 	bool busy;
+
+	struct wl_listener release;
 };
 
 struct glider_output {

@@ -9,6 +9,22 @@
 #include "renderer.h"
 #include "server.h"
 
+static void output_buffer_handle_release(struct wl_listener *listener,
+		void *data) {
+	struct glider_output_buffer *buf = wl_container_of(listener, buf, release);
+	wl_list_remove(&buf->release.link);
+	buf->busy = false;
+}
+
+static void output_buffer_set_busy(struct glider_output_buffer *buffer) {
+	assert(!buffer->busy);
+
+	buffer->busy = true;
+
+	buffer->release.notify = output_buffer_handle_release;
+	wl_signal_add(&buffer->buffer->events.release, &buffer->release);
+}
+
 static struct glider_buffer *output_next_buffer(struct glider_output *output) {
 	struct glider_output_buffer *free_buf = NULL;
 	for (size_t i = 0; i < GLIDER_OUTPUT_BUFFERS_CAP; i++) {
@@ -17,7 +33,7 @@ static struct glider_buffer *output_next_buffer(struct glider_output *output) {
 			continue;
 		}
 		if (buf->buffer != NULL) {
-			buf->busy = true;
+			output_buffer_set_busy(buf);
 			return buf->buffer;
 		}
 		free_buf = buf;
@@ -49,7 +65,7 @@ static struct glider_buffer *output_next_buffer(struct glider_output *output) {
 		wlr_log(WLR_ERROR, "Failed to allocate buffer");
 		return NULL;
 	}
-	free_buf->busy = true;
+	output_buffer_set_busy(free_buf);
 	return free_buf->buffer;
 }
 
