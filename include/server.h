@@ -16,6 +16,9 @@ struct glider_output {
 
 	struct glider_output_buffer buffers[GLIDER_OUTPUT_BUFFERS_CAP];
 
+	struct liftoff_output *liftoff_output;
+	struct liftoff_layer *bg_layer;
+
 	struct wl_listener destroy;
 };
 

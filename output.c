@@ -53,12 +53,51 @@ static struct glider_buffer *output_next_buffer(struct glider_output *output) {
 	return free_buf->buffer;
 }
 
+static void output_push_frame(struct glider_output *output) {
+	struct glider_server *server = output->server;
+	struct liftoff_layer *layer = output->bg_layer;
+
+	struct glider_buffer *buf = output_next_buffer(output);
+	if (buf == NULL) {
+		wlr_log(WLR_ERROR, "Failed to get next buffer");
+		return;
+	}
+	if (!glider_renderer_begin(server->renderer, buf)) {
+		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
+		return;
+	}
+	wlr_renderer_clear(server->renderer->renderer,
+		(float[4]){ 1.0, 0.0, 0.0, 1.0 });
+	glider_renderer_end(server->renderer);
+
+	int width = output->output->width;
+	int height = output->output->height;
+	if (!glider_drm_connector_attach(output->output, buf, layer)) {
+		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
+		return;
+	}
+	liftoff_layer_set_property(layer, "CRTC_X", 0);
+	liftoff_layer_set_property(layer, "CRTC_Y", 0);
+	liftoff_layer_set_property(layer, "CRTC_W", width);
+	liftoff_layer_set_property(layer, "CRTC_H", height);
+	liftoff_layer_set_property(layer, "SRC_X", 0);
+	liftoff_layer_set_property(layer, "SRC_Y", 0);
+	liftoff_layer_set_property(layer, "SRC_W", width << 16);
+	liftoff_layer_set_property(layer, "SRC_H", height << 16);
+
+	if (!glider_drm_connector_commit(output->output)) {
+		wlr_log(WLR_ERROR, "Failed to commit connector");
+		return;
+	}
+}
+
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
 	for (size_t i = 0; i < GLIDER_OUTPUT_BUFFERS_CAP; i++) {
 		struct glider_output_buffer *buf = &output->buffers[i];
 		glider_buffer_destroy(buf->buffer);
 	}
+	liftoff_layer_destroy(output->bg_layer);
 	wl_list_remove(&output->destroy.link);
 	free(output);
 }
@@ -81,47 +120,14 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	struct glider_buffer *buf = output_next_buffer(output);
-	if (buf == NULL) {
-		wlr_log(WLR_ERROR, "Failed to get next buffer");
-		return;
-	}
-	if (!glider_renderer_begin(server->renderer, buf)) {
-		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
-		return;
-	}
-	wlr_renderer_clear(server->renderer->renderer,
-		(float[4]){ 1.0, 0.0, 0.0, 1.0 });
-	glider_renderer_end(server->renderer);
-
-	struct liftoff_output *liftoff_output =
+	output->liftoff_output =
 		glider_drm_connector_get_liftoff_output(output->output);
-	if (liftoff_output == NULL) {
+	if (output->liftoff_output == NULL) {
 		wlr_log(WLR_ERROR, "Failed to get liftoff output");
 		return;
 	}
 
-	struct liftoff_layer *layer = liftoff_layer_create(liftoff_output);
+	output->bg_layer = liftoff_layer_create(output->liftoff_output);
 
-	int width = output->output->width;
-	int height = output->output->height;
-	if (!glider_drm_connector_attach(output->output, buf, layer)) {
-		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
-		return;
-	}
-	liftoff_layer_set_property(layer, "CRTC_X", 0);
-	liftoff_layer_set_property(layer, "CRTC_Y", 0);
-	liftoff_layer_set_property(layer, "CRTC_W", width);
-	liftoff_layer_set_property(layer, "CRTC_H", height);
-	liftoff_layer_set_property(layer, "SRC_X", 0);
-	liftoff_layer_set_property(layer, "SRC_Y", 0);
-	liftoff_layer_set_property(layer, "SRC_W", width << 16);
-	liftoff_layer_set_property(layer, "SRC_H", height << 16);
-
-	if (!glider_drm_connector_commit(output->output)) {
-		wlr_log(WLR_ERROR, "Failed to commit connector");
-		return;
-	}
-
-	liftoff_layer_destroy(layer);
+	output_push_frame(output);
 }
