@@ -58,17 +58,6 @@ bool glider_drm_connector_commit(struct wlr_output *output) {
 	return connector_commit(conn, DRM_MODE_PAGE_FLIP_EVENT);
 }
 
-void release_connector_buffers(struct glider_drm_connector *conn) {
-	struct glider_drm_buffer *buf;
-	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->locked && buf->connector == conn) {
-			buf->locked = false;
-			buf->connector = NULL;
-			wl_signal_emit(&buf->buffer->events.release, NULL);
-		}
-	}
-}
-
 static struct glider_drm_crtc *connector_pick_crtc(
 		struct glider_drm_connector *conn) {
 	struct glider_drm_device *device = conn->device;
@@ -148,6 +137,16 @@ static bool output_commit(struct wlr_output *output) {
 
 static void output_destroy(struct wlr_output *output) {
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+
+	struct glider_drm_buffer *buf;
+	wl_list_for_each(buf, &conn->device->buffers, link) {
+		if (buf->locked && buf->connector == conn) {
+			buf->locked = false;
+			buf->connector = NULL;
+			wl_signal_emit(&buf->buffer->events.release, NULL);
+		}
+	}
+
 	for (size_t i = 0; i < conn->modes_len; i++) {
 		wl_list_remove(&conn->modes[i].wlr_mode.link);
 	}
@@ -214,7 +213,6 @@ struct glider_drm_connector *create_drm_connector(
 }
 
 void destroy_drm_connector(struct glider_drm_connector *conn) {
-	release_connector_buffers(conn);
 	if (conn->connection == DRM_MODE_CONNECTED) {
 		wlr_output_destroy(&conn->output);
 	}
@@ -357,7 +355,18 @@ static int mhz_to_nsec(int mhz) {
 
 void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 		unsigned seq, struct timespec *t) {
-	release_connector_buffers(conn);
+	struct glider_drm_buffer *buf;
+	wl_list_for_each(buf, &conn->device->buffers, link) {
+		if (buf->locked && buf->connector == conn) {
+			if (buf->presented) {
+				buf->locked = buf->presented = false;
+				buf->connector = NULL;
+				wl_signal_emit(&buf->buffer->events.release, NULL);
+			} else {
+				buf->presented = true;
+			}
+		}
+	}
 
 	uint32_t present_flags = WLR_OUTPUT_PRESENT_VSYNC |
 		WLR_OUTPUT_PRESENT_HW_CLOCK | WLR_OUTPUT_PRESENT_HW_COMPLETION;
