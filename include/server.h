@@ -22,6 +22,14 @@ struct glider_output {
 	struct wl_listener destroy;
 };
 
+struct glider_keyboard {
+	struct glider_server *server;
+	struct wlr_keyboard *keyboard;
+
+	struct wl_listener destroy;
+	struct wl_listener key;
+};
+
 struct glider_server {
 	struct wl_display *display;
 	struct wlr_backend *backend;
@@ -29,8 +37,10 @@ struct glider_server {
 	struct glider_renderer *renderer;
 
 	struct wl_listener new_output;
+	struct wl_listener new_input;
 };
 
 void handle_new_output(struct wl_listener *listener, void *data);
+void handle_new_input(struct wl_listener *listener, void *data);
 
 #endif

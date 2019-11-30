@@ -53,6 +53,7 @@ executable(
 		'backend/device.c',
 		'backend/plane.c',
 		'backend/prop.c',
+		'input.c',
 		'main.c',
 		'output.c',
 		'renderer.c',
