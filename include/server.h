@@ -20,6 +20,7 @@ struct glider_output {
 	struct liftoff_layer *bg_layer;
 
 	struct wl_listener destroy;
+	struct wl_listener frame;
 };
 
 struct glider_keyboard {

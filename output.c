@@ -102,6 +102,11 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	free(output);
 }
 
+static void handle_frame(struct wl_listener *listener, void *data) {
+	struct glider_output *output = wl_container_of(listener, output, frame);
+	output_push_frame(output);
+}
+
 void handle_new_output(struct wl_listener *listener, void *data) {
 	struct glider_server *server =
 		wl_container_of(listener, server, new_output);
@@ -113,6 +118,9 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 
 	output->destroy.notify = handle_destroy;
 	wl_signal_add(&wlr_output->events.destroy, &output->destroy);
+
+	output->frame.notify = handle_frame;
+	wl_signal_add(&wlr_output->events.frame, &output->frame);
 
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
 	if (!wlr_output_set_mode(wlr_output, mode)) {
