@@ -3,22 +3,13 @@
 
 #include <wayland-server-core.h>
 
-#define GLIDER_OUTPUT_BUFFERS_CAP 3
-
-struct glider_output_buffer {
-	struct glider_buffer *buffer;
-	bool busy;
-
-	struct wl_listener release;
-};
-
 struct glider_output {
 	struct glider_server *server;
 	struct wlr_output *output;
 
-	struct glider_output_buffer buffers[GLIDER_OUTPUT_BUFFERS_CAP];
-
 	struct liftoff_output *liftoff_output;
+
+	struct glider_swapchain *bg_swapchain;
 	struct liftoff_layer *bg_layer;
 
 	struct wl_listener destroy;

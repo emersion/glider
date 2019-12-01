@@ -57,6 +57,7 @@ executable(
 		'main.c',
 		'output.c',
 		'renderer.c',
+		'swapchain.c',
 	),
 	dependencies: [
 		egl,

@@ -8,72 +8,13 @@
 #include "backend/backend.h"
 #include "renderer.h"
 #include "server.h"
-
-static void output_buffer_handle_release(struct wl_listener *listener,
-		void *data) {
-	struct glider_output_buffer *buf = wl_container_of(listener, buf, release);
-	wl_list_remove(&buf->release.link);
-	buf->busy = false;
-}
-
-static void output_buffer_set_busy(struct glider_output_buffer *buffer) {
-	assert(!buffer->busy);
-
-	buffer->busy = true;
-
-	buffer->release.notify = output_buffer_handle_release;
-	wl_signal_add(&buffer->buffer->events.release, &buffer->release);
-}
-
-static struct glider_buffer *output_next_buffer(struct glider_output *output) {
-	struct glider_output_buffer *free_buf = NULL;
-	for (size_t i = 0; i < GLIDER_OUTPUT_BUFFERS_CAP; i++) {
-		struct glider_output_buffer *buf = &output->buffers[i];
-		if (buf->busy) {
-			continue;
-		}
-		if (buf->buffer != NULL) {
-			output_buffer_set_busy(buf);
-			return buf->buffer;
-		}
-		free_buf = buf;
-	}
-	if (free_buf == NULL) {
-		wlr_log(WLR_ERROR, "No free output buffer slot");
-		return NULL;
-	}
-
-	const struct wlr_drm_format_set *formats =
-		glider_drm_connector_get_primary_formats(output->output);
-	assert(formats != NULL);
-
-	const struct wlr_drm_format *format =
-		wlr_drm_format_set_get(formats, DRM_FORMAT_ARGB8888);
-	if (format == NULL) {
-		format = wlr_drm_format_set_get(formats, DRM_FORMAT_XRGB8888);
-	}
-	if (format == NULL) {
-		wlr_log(WLR_ERROR, "Unsupported output formats");
-		return NULL;
-	}
-
-	wlr_log(WLR_DEBUG, "Allocating new buffer for output");
-	free_buf->buffer = glider_allocator_create_buffer(output->server->allocator,
-		output->output->width, output->output->height, format->format,
-		format->modifiers, format->len);
-	if (free_buf->buffer == NULL) {
-		wlr_log(WLR_ERROR, "Failed to allocate buffer");
-		return NULL;
-	}
-	output_buffer_set_busy(free_buf);
-	return free_buf->buffer;
-}
+#include "swapchain.h"
 
 static void output_push_frame(struct glider_output *output) {
 	struct glider_server *server = output->server;
 	struct liftoff_layer *layer = output->bg_layer;
 
-	struct glider_buffer *buf = output_next_buffer(output);
+	struct glider_buffer *buf = glider_swapchain_acquire(output->bg_swapchain);
 	if (buf == NULL) {
 		wlr_log(WLR_ERROR, "Failed to get next buffer");
 		return;
@@ -109,10 +50,7 @@ static void output_push_frame(struct glider_output *output) {
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
-	for (size_t i = 0; i < GLIDER_OUTPUT_BUFFERS_CAP; i++) {
-		struct glider_output_buffer *buf = &output->buffers[i];
-		glider_buffer_destroy(buf->buffer);
-	}
+	glider_swapchain_destroy(output->bg_swapchain);
 	liftoff_layer_destroy(output->bg_layer);
 	wl_list_remove(&output->destroy.link);
 	free(output);
@@ -152,6 +90,25 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	}
 
 	output->bg_layer = liftoff_layer_create(output->liftoff_output);
+
+	const struct wlr_drm_format_set *formats =
+		glider_drm_connector_get_primary_formats(output->output);
+	assert(formats != NULL);
+
+	const struct wlr_drm_format *format =
+		wlr_drm_format_set_get(formats, DRM_FORMAT_ARGB8888);
+	if (format == NULL) {
+		format = wlr_drm_format_set_get(formats, DRM_FORMAT_XRGB8888);
+	}
+	if (format == NULL) {
+		wlr_log(WLR_ERROR, "Unsupported output formats");
+		return;
+	}
+
+	output->bg_swapchain = glider_swapchain_create(output->server->allocator);
+	output->bg_swapchain->width = output->output->width;
+	output->bg_swapchain->height = output->output->height;
+	output->bg_swapchain->format = format->format;
 
 	output_push_frame(output);
 }
