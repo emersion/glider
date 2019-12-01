@@ -24,6 +24,7 @@ enum glider_drm_crtc_prop {
 
 enum glider_drm_plane_prop {
 	GLIDER_DRM_PLANE_TYPE,
+	GLIDER_DRM_PLANE_IN_FORMATS, // TODO: make optional
 	GLIDER_DRM_PLANE_PROP_COUNT, // keep last
 };
 

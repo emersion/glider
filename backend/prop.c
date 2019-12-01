@@ -13,6 +13,7 @@ const char *glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT] = {
 
 const char *glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT] = {
 	[GLIDER_DRM_PLANE_TYPE] = "type",
+	[GLIDER_DRM_PLANE_IN_FORMATS] = "IN_FORMATS",
 };
 
 int prop_cmp(const void *_a, const void *_b) {

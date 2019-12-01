@@ -56,6 +56,11 @@ struct glider_buffer *glider_allocator_create_buffer(
 	buffer->modifier = gbm_bo_get_modifier(bo);
 	wl_signal_init(&buffer->events.destroy);
 	wl_signal_init(&buffer->events.release);
+
+	wlr_log(WLR_DEBUG, "Allocated %dx%d buffer (format 0x%"PRIX32", "
+		"modifier 0x%"PRIX64")", buffer->width, buffer->height,
+		buffer->format, buffer->modifier);
+
 	return buffer;
 }
 
