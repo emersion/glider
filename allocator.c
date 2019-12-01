@@ -28,11 +28,17 @@ void glider_allocator_destroy(struct glider_allocator *alloc) {
 }
 
 struct glider_buffer *glider_allocator_create_buffer(
-		struct glider_allocator *alloc, int width, int height, uint32_t format,
-		const uint64_t *modifiers, size_t modifiers_len) {
-	// TODO: add support for modifiers
-	struct gbm_bo *bo = gbm_bo_create(alloc->gbm_device, width, height, format,
-		GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+		struct glider_allocator *alloc, int width, int height,
+		const struct wlr_drm_format *format) {
+	struct gbm_bo *bo = NULL;
+	if (format->len > 0) {
+		bo = gbm_bo_create_with_modifiers(alloc->gbm_device, width, height,
+			format->format, format->modifiers, format->len);
+	}
+	if (bo == NULL) {
+		bo = gbm_bo_create(alloc->gbm_device, width, height,
+			format->format, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+	}
 	if (bo == NULL) {
 		wlr_log(WLR_ERROR, "gbm_bo_create failed");
 		return NULL;
@@ -46,8 +52,8 @@ struct glider_buffer *glider_allocator_create_buffer(
 	buffer->gbm_bo = bo;
 	buffer->width = width;
 	buffer->height = height;
-	buffer->format = format;
-	buffer->modifier = DRM_FORMAT_MOD_INVALID;
+	buffer->format = gbm_bo_get_format(bo);
+	buffer->modifier = gbm_bo_get_modifier(bo);
 	wl_signal_init(&buffer->events.destroy);
 	wl_signal_init(&buffer->events.release);
 	return buffer;

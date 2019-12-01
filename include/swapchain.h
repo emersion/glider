@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <wayland-server-core.h>
+#include <wlr/render/drm_format_set.h>
 
 #define GLIDER_SWAPCHAIN_CAP 3
 
@@ -18,8 +19,7 @@ struct glider_swapchain {
 	struct glider_allocator *allocator;
 
 	int width, height;
-	uint32_t format;
-	// TODO: modifiers
+	struct wlr_drm_format *format;
 
 	struct glider_swapchain_slot slots[GLIDER_SWAPCHAIN_CAP];
 
@@ -27,10 +27,11 @@ struct glider_swapchain {
 };
 
 struct glider_swapchain *glider_swapchain_create(
-	struct glider_allocator *alloc);
+	struct glider_allocator *alloc, int width, int height,
+	const struct wlr_drm_format *format);
 void glider_swapchain_destroy(struct glider_swapchain *swapchain);
 struct glider_buffer *glider_swapchain_acquire(
 	struct glider_swapchain *swapchain);
-// TODO: add a way to set width/height/format/modifiers
+// TODO: add glider_swapchain_resize
 
 #endif

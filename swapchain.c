@@ -5,12 +5,26 @@
 #include "swapchain.h"
 
 struct glider_swapchain *glider_swapchain_create(
-		struct glider_allocator *alloc) {
+		struct glider_allocator *alloc, int width, int height,
+		const struct wlr_drm_format *format) {
 	struct glider_swapchain *swapchain = calloc(1, sizeof(*swapchain));
 	if (swapchain == NULL) {
 		return NULL;
 	}
 	swapchain->allocator = alloc;
+	swapchain->width = width;
+	swapchain->height = height;
+
+	// TODO: extract this in wlr_drm_format_dup
+	size_t format_size = sizeof(struct wlr_drm_format) +
+		format->len * sizeof(format->modifiers[0]);
+	swapchain->format = malloc(format_size);
+	if (swapchain->format == NULL) {
+		free(swapchain);
+		return NULL;
+	}
+	memcpy(swapchain->format, format, format_size);
+
 	return swapchain;
 }
 
@@ -18,6 +32,7 @@ void glider_swapchain_destroy(struct glider_swapchain *swapchain) {
 	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {
 		glider_buffer_destroy(swapchain->slots[i].buffer);
 	}
+	free(swapchain->format);
 	free(swapchain);
 }
 
@@ -75,7 +90,7 @@ struct glider_buffer *glider_swapchain_acquire(
 
 	wlr_log(WLR_DEBUG, "Allocating new swapchain buffer");
 	free_slot->buffer = glider_allocator_create_buffer(swapchain->allocator,
-		swapchain->width, swapchain->height, swapchain->format, NULL, 0);
+		swapchain->width, swapchain->height, swapchain->format);
 	if (free_slot->buffer == NULL) {
 		wlr_log(WLR_ERROR, "Failed to allocate buffer");
 		return NULL;

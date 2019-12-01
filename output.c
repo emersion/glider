@@ -105,10 +105,8 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	output->bg_swapchain = glider_swapchain_create(output->server->allocator);
-	output->bg_swapchain->width = output->output->width;
-	output->bg_swapchain->height = output->output->height;
-	output->bg_swapchain->format = format->format;
+	output->bg_swapchain = glider_swapchain_create(output->server->allocator,
+		output->output->width, output->output->height, format);
 
 	output_push_frame(output);
 }

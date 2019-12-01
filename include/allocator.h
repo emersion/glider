@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <wayland-server-core.h>
 #include <wlr/render/dmabuf.h>
+#include <wlr/render/drm_format_set.h>
 
 // TODO: turn this into an interface
 struct glider_buffer {
@@ -30,8 +31,8 @@ struct glider_allocator {
 
 void glider_allocator_destroy(struct glider_allocator *alloc);
 struct glider_buffer *glider_allocator_create_buffer(
-	struct glider_allocator *alloc, int width, int height, uint32_t format,
-	const uint64_t *modifiers, size_t modifiers_len);
+	struct glider_allocator *alloc, int width, int height,
+	const struct wlr_drm_format *format);
 
 void glider_buffer_destroy(struct glider_buffer *buffer);
 bool glider_buffer_get_dmabuf(struct glider_buffer *buffer,
