@@ -48,6 +48,7 @@ struct glider_buffer *glider_allocator_create_buffer(
 	buffer->height = height;
 	buffer->format = format;
 	buffer->modifier = DRM_FORMAT_MOD_INVALID;
+	wl_signal_init(&buffer->events.destroy);
 	wl_signal_init(&buffer->events.release);
 	return buffer;
 }
@@ -56,6 +57,7 @@ void glider_buffer_destroy(struct glider_buffer *buffer) {
 	if (buffer == NULL) {
 		return;
 	}
+	wl_signal_emit(&buffer->events.destroy, NULL);
 	if (buffer->dmabuf_attribs.n_planes > 0) {
 		wlr_dmabuf_attributes_finish(&buffer->dmabuf_attribs);
 	}

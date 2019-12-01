@@ -47,7 +47,7 @@ struct glider_drm_buffer {
 	// TODO: allow a single buffer to be displayed on multiple CRTCs
 	struct glider_drm_connector *connector;
 
-	// TODO: destroy listener
+	struct wl_listener destroy;
 };
 
 struct glider_drm_plane {

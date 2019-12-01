@@ -292,6 +292,12 @@ static uint32_t import_dmabuf(struct glider_drm_device *device,
 	return fb_id;
 }
 
+static void handle_buffer_destroy(struct wl_listener *listener, void *data) {
+	struct glider_drm_buffer *drm_buffer =
+		wl_container_of(listener, drm_buffer, destroy);
+	destroy_drm_buffer(drm_buffer);
+}
+
 struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 		struct glider_buffer *buffer) {
 	struct glider_drm_buffer *drm_buffer;
@@ -321,6 +327,9 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 		return NULL;
 	}
 
+	drm_buffer->destroy.notify = handle_buffer_destroy;
+	wl_signal_add(&buffer->events.destroy, &drm_buffer->destroy);
+
 	wl_list_insert(&device->buffers, &drm_buffer->link);
 
 	return drm_buffer;
@@ -330,6 +339,7 @@ static void destroy_drm_buffer(struct glider_drm_buffer *buffer) {
 	if (drmModeRmFB(buffer->device->fd, buffer->id) != 0) {
 		wlr_log_errno(WLR_ERROR, "drmModeRmFB failed");
 	}
+	wl_list_remove(&buffer->destroy.link);
 	wl_list_remove(&buffer->link);
 	free(buffer);
 }

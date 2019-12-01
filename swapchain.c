@@ -21,12 +21,23 @@ void glider_swapchain_destroy(struct glider_swapchain *swapchain) {
 	free(swapchain);
 }
 
-static void slot_handle_release(struct wl_listener *listener,
-		void *data) {
-	struct glider_swapchain_slot *slot =
-		wl_container_of(listener, slot, release);
+static void slot_release(struct glider_swapchain_slot *slot) {
+	wl_list_remove(&slot->destroy.link);
 	wl_list_remove(&slot->release.link);
 	slot->acquired = false;
+}
+
+static void slot_handle_destroy(struct wl_listener *listener, void *data) {
+	struct glider_swapchain_slot *slot =
+		wl_container_of(listener, slot, destroy);
+	slot_release(slot);
+	slot->buffer = NULL;
+}
+
+static void slot_handle_release(struct wl_listener *listener, void *data) {
+	struct glider_swapchain_slot *slot =
+		wl_container_of(listener, slot, release);
+	slot_release(slot);
 }
 
 static struct glider_buffer *slot_acquire(struct glider_swapchain_slot *slot) {
@@ -34,6 +45,9 @@ static struct glider_buffer *slot_acquire(struct glider_swapchain_slot *slot) {
 	assert(slot->buffer != NULL);
 
 	slot->acquired = true;
+
+	slot->destroy.notify = slot_handle_destroy;
+	wl_signal_add(&slot->buffer->events.destroy, &slot->destroy);
 
 	slot->release.notify = slot_handle_release;
 	wl_signal_add(&slot->buffer->events.release, &slot->release);

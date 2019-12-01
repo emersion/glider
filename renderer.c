@@ -36,6 +36,7 @@ struct glider_renderer *glider_gbm_renderer_create(
 
 static void renderer_buffer_destroy(struct glider_renderer_buffer *buf) {
 	wl_list_remove(&buf->link);
+	wl_list_remove(&buf->destroy.link);
 	glDeleteFramebuffers(1, &buf->gl_fbo);
 	glDeleteTextures(1, &buf->gl_texture);
 	wlr_egl_destroy_image(&buf->renderer->egl, &buf->egl_image);
@@ -62,6 +63,12 @@ static struct glider_renderer_buffer *get_buffer(struct glider_renderer *rendere
 		}
 	}
 	return NULL;
+}
+
+static void handle_buffer_destroy(struct wl_listener *listener, void *data) {
+	struct glider_renderer_buffer *buf =
+		wl_container_of(listener, buf, destroy);
+	renderer_buffer_destroy(buf);
 }
 
 static struct glider_renderer_buffer *renderer_buffer_create(
@@ -112,6 +119,9 @@ static struct glider_renderer_buffer *renderer_buffer_create(
 		wlr_log(WLR_ERROR, "Failed to create FBO");
 		goto error;
 	}
+
+	renderer_buffer->destroy.notify = handle_buffer_destroy;
+	wl_signal_add(&buffer->events.destroy, &renderer_buffer->destroy);
 
 	wl_list_insert(&renderer->buffers, &renderer_buffer->link);
 

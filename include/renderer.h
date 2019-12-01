@@ -17,7 +17,7 @@ struct glider_renderer_buffer {
 	GLuint gl_texture;
 	GLuint gl_fbo;
 
-	// TODO: destroy listener
+	struct wl_listener destroy;
 };
 
 struct glider_renderer {

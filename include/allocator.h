@@ -15,6 +15,7 @@ struct glider_buffer {
 	size_t n_locks;
 
 	struct {
+		struct wl_signal destroy;
 		struct wl_signal release;
 	} events;
 

@@ -10,8 +10,8 @@ struct glider_swapchain_slot {
 	struct glider_buffer *buffer;
 	bool acquired;
 
+	struct wl_listener destroy;
 	struct wl_listener release;
-	// TODO: buffer destroy listener
 };
 
 struct glider_swapchain {
@@ -31,5 +31,6 @@ struct glider_swapchain *glider_swapchain_create(
 void glider_swapchain_destroy(struct glider_swapchain *swapchain);
 struct glider_buffer *glider_swapchain_acquire(
 	struct glider_swapchain *swapchain);
+// TODO: add a way to set width/height/format/modifiers
 
 #endif
