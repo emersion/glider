@@ -44,7 +44,7 @@ bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 		const char **name = lfind(drm_prop->name, prop_names, &props_len,
 			sizeof(prop_names[0]), prop_cmp);
 		if (name != NULL) {
-			struct glider_drm_prop *prop = &props[prop_names - name];
+			struct glider_drm_prop *prop = &props[name - prop_names];
 			prop->id = id;
 			prop->current = prop->pending = prop->initial = value;
 		}
