@@ -10,38 +10,49 @@
 #include "server.h"
 #include "swapchain.h"
 
-static void output_push_frame(struct glider_output *output) {
+static bool output_render_bg(struct glider_output *output,
+		struct glider_buffer *buf) {
 	struct glider_server *server = output->server;
-	struct liftoff_layer *layer = output->bg_layer;
 
+	if (!glider_renderer_begin(server->renderer, buf)) {
+		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
+		return false;
+	}
+	wlr_renderer_clear(server->renderer->renderer,
+		(float[4]){ 1.0, 0.0, 0.0, 1.0 });
+	glider_renderer_end(server->renderer);
+	return true;
+}
+
+static bool attach_buffer(struct glider_output *output,
+		struct glider_buffer *buf, struct liftoff_layer *layer) {
+	if (!glider_drm_connector_attach(output->output, buf, layer)) {
+		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
+		return false;
+	}
+	liftoff_layer_set_property(layer, "CRTC_X", 0);
+	liftoff_layer_set_property(layer, "CRTC_Y", 0);
+	liftoff_layer_set_property(layer, "CRTC_W", buf->width);
+	liftoff_layer_set_property(layer, "CRTC_H", buf->height);
+	liftoff_layer_set_property(layer, "SRC_X", 0);
+	liftoff_layer_set_property(layer, "SRC_Y", 0);
+	liftoff_layer_set_property(layer, "SRC_W", buf->width << 16);
+	liftoff_layer_set_property(layer, "SRC_H", buf->height << 16);
+	return true;
+}
+
+static void output_push_frame(struct glider_output *output) {
 	struct glider_buffer *buf = glider_swapchain_acquire(output->bg_swapchain);
 	if (buf == NULL) {
 		wlr_log(WLR_ERROR, "Failed to get next buffer");
 		return;
 	}
-	if (!glider_renderer_begin(server->renderer, buf)) {
-		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
+	if (!output_render_bg(output, buf)) {
 		return;
 	}
-	wlr_renderer_clear(server->renderer->renderer,
-		(float[4]){ 1.0, 0.0, 0.0, 1.0 });
-	glider_renderer_end(server->renderer);
-
-	int width = output->output->width;
-	int height = output->output->height;
-	if (!glider_drm_connector_attach(output->output, buf, layer)) {
-		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
+	if (!attach_buffer(output, buf, output->bg_layer)) {
 		return;
 	}
-	liftoff_layer_set_property(layer, "CRTC_X", 0);
-	liftoff_layer_set_property(layer, "CRTC_Y", 0);
-	liftoff_layer_set_property(layer, "CRTC_W", width);
-	liftoff_layer_set_property(layer, "CRTC_H", height);
-	liftoff_layer_set_property(layer, "SRC_X", 0);
-	liftoff_layer_set_property(layer, "SRC_Y", 0);
-	liftoff_layer_set_property(layer, "SRC_W", width << 16);
-	liftoff_layer_set_property(layer, "SRC_H", height << 16);
-
 	if (!glider_drm_connector_commit(output->output)) {
 		wlr_log(WLR_ERROR, "Failed to commit connector");
 		return;
@@ -105,6 +116,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
+	// TODO: try without modifiers if atomic test-only commit fails
 	output->bg_swapchain = glider_swapchain_create(output->server->allocator,
 		output->output->width, output->output->height, format);
 
