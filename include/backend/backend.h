@@ -95,6 +95,8 @@ struct glider_drm_device {
 	int fd;
 	struct wl_event_source *event_source;
 
+	bool cap_addfb2_modifiers;
+
 	struct wl_list buffers;
 	struct wl_list connectors;
 

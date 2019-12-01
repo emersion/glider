@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 700
 #include <assert.h>
+#include <drm_fourcc.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <wlr/util/log.h>
@@ -152,6 +153,9 @@ bool init_drm_device(struct glider_drm_device *device,
 		return false;
 	}
 
+	int ret = drmGetCap(device->fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
+	device->cap_addfb2_modifiers = ret == 0 && cap == 1;
+
 	device->liftoff_device = liftoff_device_create(device->fd);
 	if (device->liftoff_device == NULL) {
 		return false;
@@ -272,21 +276,33 @@ error:
 static uint32_t import_dmabuf(struct glider_drm_device *device,
 		struct wlr_dmabuf_attributes *dmabuf) {
 	uint32_t handles[4] = {0};
-	int i;
-	for (i = 0; i < dmabuf->n_planes; i++) {
+	uint64_t modifiers[4] = {0};
+	for (int i = 0; i < dmabuf->n_planes; i++) {
 		if (drmPrimeFDToHandle(device->fd, dmabuf->fd[i], &handles[i]) != 0) {
 			wlr_log_errno(WLR_ERROR, "drmPrimeFDToHandle failed");
 			return 0;
 		}
+		// KMS requires all BO planes to have the same modifier
+		modifiers[i] = dmabuf->modifier;
 	}
 
-	// TODO: drmModeAddFB2WithModifiers
 	uint32_t fb_id = 0;
-	int ret = drmModeAddFB2(device->fd, dmabuf->width, dmabuf->height,
-		dmabuf->format, handles, dmabuf->stride, dmabuf->offset, &fb_id, 0);
-	if (ret != 0) {
-		wlr_log_errno(WLR_ERROR, "drmModeAddFB2 failed");
-		return 0;
+	if (device->cap_addfb2_modifiers &&
+			dmabuf->modifier != DRM_FORMAT_MOD_INVALID) {
+		if (drmModeAddFB2WithModifiers(device->fd, dmabuf->width,
+				dmabuf->height, dmabuf->format, handles,
+				dmabuf->stride, dmabuf->offset, modifiers, &fb_id,
+				DRM_MODE_FB_MODIFIERS) != 0) {
+			wlr_log_errno(WLR_ERROR, "drmModeAddFB2WithModifiers failed");
+			return 0;
+		}
+	} else {
+		if (drmModeAddFB2(device->fd, dmabuf->width, dmabuf->height,
+				dmabuf->format, handles, dmabuf->stride, dmabuf->offset,
+				&fb_id, 0) != 0) {
+			wlr_log_errno(WLR_ERROR, "drmModeAddFB2 failed");
+			return 0;
+		}
 	}
 
 	return fb_id;
