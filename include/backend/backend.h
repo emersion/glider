@@ -47,6 +47,7 @@ struct glider_drm_buffer {
 	bool locked, presented;
 	// TODO: allow a single buffer to be displayed on multiple CRTCs
 	struct glider_drm_connector *connector;
+	struct liftoff_layer *layer;
 
 	struct wl_listener destroy;
 };

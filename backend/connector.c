@@ -365,11 +365,21 @@ bool glider_drm_connector_attach(struct wlr_output *output,
 		return false;
 	}
 
+	// Unlock any buffer we're going to replace
+	struct glider_drm_buffer *buf;
+	wl_list_for_each(buf, &conn->device->buffers, link) {
+		if (buf->locked && !buf->presented && buf->connector == conn &&
+				buf->layer == layer) {
+			unlock_drm_buffer(buf);
+		}
+	}
+
 	liftoff_layer_set_property(layer, "FB_ID", drm_buffer->id);
 	// TODO: there's no guarantee the layer will be directly scanned out. If
 	// that's not the case, do not lock the buffer.
 	drm_buffer->locked = true;
 	drm_buffer->connector = conn;
+	drm_buffer->layer = layer;
 	glider_buffer_lock(drm_buffer->buffer);
 	return true;
 }
@@ -412,5 +422,6 @@ void unlock_drm_buffer(struct glider_drm_buffer *buf) {
 	assert(buf->locked);
 	buf->locked = buf->presented = false;
 	buf->connector = NULL;
+	buf->layer = NULL;
 	glider_buffer_unlock(buf->buffer);
 }
