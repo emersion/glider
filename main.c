@@ -1,6 +1,9 @@
+#include <unistd.h>
 #include <wlr/util/log.h>
 #include <wlr/backend/multi.h>
 #include <wlr/backend/libinput.h>
+#include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_xdg_shell.h>
 #include "allocator.h"
 #include "backend/backend.h"
 #include "renderer.h"
@@ -10,6 +13,19 @@ int main(int argc, char *argv[]) {
 	struct glider_server server = {0};
 
 	wlr_log_init(WLR_DEBUG, NULL);
+
+	const char *startup_cmd = NULL;
+	int c;
+	while ((c = getopt(argc, argv, "s:h")) != -1) {
+		switch (c) {
+		case 's':
+			startup_cmd = optarg;
+			break;
+		default:
+			printf("usage: %s [-s startup command]\n", argv[0]);
+			return 0;
+		}
+	}
 
 	server.display = wl_display_create();
 	if (server.display == NULL) {
@@ -50,6 +66,10 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	wlr_compositor_create(server.display, server.renderer->renderer);
+
+	server.xdg_shell = wlr_xdg_shell_create(server.display);
+
 	server.new_output.notify = handle_new_output;
 	wl_signal_add(&server.backend->events.new_output, &server.new_output);
 
@@ -58,6 +78,22 @@ int main(int argc, char *argv[]) {
 
 	if (!wlr_backend_start(server.backend)) {
 		return 1;
+	}
+
+	const char *socket = wl_display_add_socket_auto(server.display);
+	setenv("WAYLAND_DISPLAY", socket, true);
+	wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",
+		socket);
+
+	if (startup_cmd) {
+		wlr_log(WLR_DEBUG, "Running startup command: %s", startup_cmd);
+		pid_t pid = fork();
+		if (pid < 0) {
+			wlr_log_errno(WLR_ERROR, "fork failed");
+		} else if (pid == 0) {
+			execl("/bin/sh", "/bin/sh", "-c", startup_cmd, (void *)NULL);
+			wlr_log_errno(WLR_ERROR, "execl failed");
+		}
 	}
 
 	wl_display_run(server.display);

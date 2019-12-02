@@ -21,6 +21,7 @@ add_project_arguments(cc.get_supported_arguments([
 	'-Wno-unused-parameter',
 ]), language: 'c')
 
+wayland_protocols = dependency('wayland-protocols')
 wayland_server = dependency('wayland-server')
 liftoff = dependency('liftoff', fallback: ['libliftoff', 'liftoff'])
 gbm = dependency('gbm')
@@ -43,6 +44,8 @@ endif
 
 glider_inc = include_directories('include')
 
+subdir('protocol')
+
 executable(
 	'glider',
 	files(
@@ -64,6 +67,7 @@ executable(
 		gbm,
 		glesv2,
 		liftoff,
+		wl_protos,
 		wlroots,
 	],
 	include_directories: glider_inc,
