@@ -164,5 +164,7 @@ bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 	uint32_t obj_id, uint32_t obj_type);
 bool apply_drm_props(struct glider_drm_prop *props, size_t props_len,
 	uint32_t obj_id, drmModeAtomicReq *req);
+void move_drm_prop_values(struct glider_drm_prop *props, size_t props_len,
+	bool commit);
 
 #endif

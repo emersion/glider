@@ -82,3 +82,15 @@ bool apply_drm_props(struct glider_drm_prop *props, size_t props_len,
 	}
 	return true;
 }
+
+void move_drm_prop_values(struct glider_drm_prop *props, size_t props_len,
+		bool commit) {
+	for (size_t i = 0; i < props_len; i++) {
+		struct glider_drm_prop *prop = &props[i];
+		if (commit) {
+			prop->current = prop->pending;
+		} else {
+			prop->pending = prop->current;
+		}
+	}
+}

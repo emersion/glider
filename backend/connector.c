@@ -42,11 +42,13 @@ static bool connector_commit(struct glider_drm_connector *conn,
 	if (ret != 0) {
 		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
 	}
-	// TODO: commit props on success, rollback on failure
-	/*if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
-		move_drm_prop_values(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT);
-		move_drm_prop_values(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT);
-	}*/
+	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
+		// Commit properties on success, rollback on failure
+		move_drm_prop_values(conn->props,
+			GLIDER_DRM_CONNECTOR_PROP_COUNT, ret == 0);
+		move_drm_prop_values(conn->crtc->props,
+			GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
+	}
 	// TODO: release buffers on commit failure
 	return ret == 0;
 
