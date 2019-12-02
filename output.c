@@ -59,6 +59,22 @@ static void output_push_frame(struct glider_output *output) {
 	}
 }
 
+static bool output_test(struct glider_output *output) {
+	struct glider_buffer *buf = glider_swapchain_acquire(output->bg_swapchain);
+	if (buf == NULL) {
+		wlr_log(WLR_ERROR, "Failed to get next buffer");
+		return false;
+	}
+	if (!attach_buffer(output, buf, output->bg_layer)) {
+		return false;
+	}
+	if (!glider_drm_connector_test(output->output)) {
+		wlr_log(WLR_DEBUG, "Connector test failed");
+		return false;
+	}
+	return true;
+}
+
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
 	glider_swapchain_destroy(output->bg_swapchain);
@@ -119,6 +135,21 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	// TODO: try without modifiers if atomic test-only commit fails
 	output->bg_swapchain = glider_swapchain_create(output->server->allocator,
 		output->output->width, output->output->height, format);
+
+	if (!output_test(output)) {
+		wlr_log(WLR_DEBUG, "Failed to enable output, retrying without modifiers");
+		glider_swapchain_destroy(output->bg_swapchain);
+		struct wlr_drm_format format_no_modifiers = {
+			.format = format->format,
+		};
+		output->bg_swapchain = glider_swapchain_create(output->server->allocator,
+			output->output->width, output->output->height, &format_no_modifiers);
+	}
+
+	if (!output_test(output)) {
+		wlr_log(WLR_ERROR, "Failed to enabled output");
+		return;
+	}
 
 	output_push_frame(output);
 }

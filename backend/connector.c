@@ -15,8 +15,16 @@ static struct glider_drm_connector *get_drm_connector_from_output(
 
 static bool connector_commit(struct glider_drm_connector *conn,
 		uint32_t flags) {
-	wlr_log(WLR_DEBUG, "Performing atomic commit on connector %"PRIu32,
-		conn->id);
+	if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET) {
+		wlr_log(WLR_DEBUG, "Performing atomic modeset on connector %"PRIu32,
+			conn->id);
+	} else if (flags & DRM_MODE_ATOMIC_TEST_ONLY) {
+		wlr_log(WLR_DEBUG, "Performing test-only atomic commit "
+			"on connector %"PRIu32, conn->id);
+	} else {
+		wlr_log(WLR_DEBUG, "Performing atomic commit on connector %"PRIu32,
+			conn->id);
+	}
 
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
 	if (req == NULL) {
@@ -49,7 +57,16 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		move_drm_prop_values(conn->crtc->props,
 			GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
 	}
-	// TODO: release buffers on commit failure
+	if (!(flags & DRM_MODE_PAGE_FLIP_EVENT) || ret != 0) {
+		// Release buffers on test-only commit and on failure: we won't get a
+		// page-flip event
+		struct glider_drm_buffer *buf;
+		wl_list_for_each(buf, &conn->device->buffers, link) {
+			if (buf->locked && !buf->presented && buf->connector == conn) {
+				unlock_drm_buffer(buf);
+			}
+		}
+	}
 	return ret == 0;
 
 error:
@@ -60,6 +77,11 @@ error:
 bool glider_drm_connector_commit(struct wlr_output *output) {
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
 	return connector_commit(conn, DRM_MODE_PAGE_FLIP_EVENT);
+}
+
+bool glider_drm_connector_test(struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	return connector_commit(conn, DRM_MODE_ATOMIC_TEST_ONLY);
 }
 
 static struct glider_drm_crtc *connector_pick_crtc(
@@ -145,9 +167,7 @@ static void output_destroy(struct wlr_output *output) {
 	struct glider_drm_buffer *buf;
 	wl_list_for_each(buf, &conn->device->buffers, link) {
 		if (buf->locked && buf->connector == conn) {
-			buf->locked = false;
-			buf->connector = NULL;
-			glider_buffer_unlock(buf->buffer);
+			unlock_drm_buffer(buf);
 		}
 	}
 
@@ -364,9 +384,7 @@ void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 	wl_list_for_each(buf, &conn->device->buffers, link) {
 		if (buf->locked && buf->connector == conn) {
 			if (buf->presented) {
-				buf->locked = buf->presented = false;
-				buf->connector = NULL;
-				glider_buffer_unlock(buf->buffer);
+				unlock_drm_buffer(buf);
 			} else {
 				buf->presented = true;
 			}
@@ -388,4 +406,11 @@ void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 	wlr_output_send_present(&conn->output, &present_event);
 
 	wlr_output_send_frame(&conn->output);
+}
+
+void unlock_drm_buffer(struct glider_drm_buffer *buf) {
+	assert(buf->locked);
+	buf->locked = buf->presented = false;
+	buf->connector = NULL;
+	glider_buffer_unlock(buf->buffer);
 }

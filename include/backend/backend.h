@@ -136,6 +136,7 @@ struct liftoff_output *glider_drm_connector_get_liftoff_output(
 bool glider_drm_connector_attach(struct wlr_output *output,
 	struct glider_buffer *buffer, struct liftoff_layer *layer);
 bool glider_drm_connector_commit(struct wlr_output *output);
+bool glider_drm_connector_test(struct wlr_output *output);
 
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
@@ -158,6 +159,8 @@ void finish_drm_crtc(struct glider_drm_crtc *crtc);
 bool init_drm_plane(struct glider_drm_plane *plane,
 	struct glider_drm_device *device, uint32_t id);
 void finish_drm_plane(struct glider_drm_plane *plane);
+
+void unlock_drm_buffer(struct glider_drm_buffer *buf);
 
 bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 	size_t props_len, struct glider_drm_device *device,
