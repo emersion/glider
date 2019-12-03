@@ -4,6 +4,13 @@
 #include "allocator.h"
 #include "swapchain.h"
 
+static void swapchain_handle_allocator_destroy(struct wl_listener *listener,
+		void *data) {
+	struct glider_swapchain *swapchain =
+		wl_container_of(listener, swapchain, allocator_destroy);
+	swapchain->allocator = NULL;
+}
+
 struct glider_swapchain *glider_swapchain_create(
 		struct glider_allocator *alloc, int width, int height,
 		const struct wlr_drm_format *format) {
@@ -25,6 +32,9 @@ struct glider_swapchain *glider_swapchain_create(
 	}
 	memcpy(swapchain->format, format, format_size);
 
+	swapchain->allocator_destroy.notify = swapchain_handle_allocator_destroy;
+	wl_signal_add(&alloc->events.destroy, &swapchain->allocator_destroy);
+
 	return swapchain;
 }
 
@@ -32,6 +42,7 @@ void glider_swapchain_destroy(struct glider_swapchain *swapchain) {
 	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {
 		glider_buffer_destroy(swapchain->slots[i].buffer);
 	}
+	wl_list_remove(&swapchain->allocator_destroy.link);
 	free(swapchain->format);
 	free(swapchain);
 }
@@ -85,6 +96,10 @@ struct glider_buffer *glider_swapchain_acquire(
 	}
 	if (free_slot == NULL) {
 		wlr_log(WLR_ERROR, "No free output buffer slot");
+		return NULL;
+	}
+
+	if (swapchain->allocator == NULL) {
 		return NULL;
 	}
 

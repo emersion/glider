@@ -12,6 +12,7 @@ struct glider_allocator *glider_gbm_allocator_create(int fd) {
 	if (alloc == NULL) {
 		return NULL;
 	}
+	wl_signal_init(&alloc->events.destroy);
 
 	alloc->gbm_device = gbm_create_device(fd);
 	if (alloc->gbm_device == NULL) {
@@ -24,6 +25,7 @@ struct glider_allocator *glider_gbm_allocator_create(int fd) {
 }
 
 void glider_allocator_destroy(struct glider_allocator *alloc) {
+	wl_signal_emit(&alloc->events.destroy, NULL);
 	gbm_device_destroy(alloc->gbm_device);
 	free(alloc);
 }

@@ -16,14 +16,14 @@ struct glider_swapchain_slot {
 };
 
 struct glider_swapchain {
-	struct glider_allocator *allocator;
+	struct glider_allocator *allocator; // NULL if destroyed
 
 	int width, height;
 	struct wlr_drm_format *format;
 
 	struct glider_swapchain_slot slots[GLIDER_SWAPCHAIN_CAP];
 
-	// TODO: allocator destroy listener, destroy event
+	struct wl_listener allocator_destroy;
 };
 
 struct glider_swapchain *glider_swapchain_create(

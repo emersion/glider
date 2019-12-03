@@ -35,6 +35,10 @@ struct glider_buffer {
 // TODO: turn this into an interface
 struct glider_allocator {
 	struct gbm_device *gbm_device;
+
+	struct {
+		struct wl_signal destroy;
+	} events;
 };
 
 void glider_allocator_destroy(struct glider_allocator *alloc);
