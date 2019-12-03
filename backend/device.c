@@ -53,14 +53,14 @@ static bool get_drm_resources(struct glider_drm_device *device) {
 			continue;
 		}
 
-		// There should be exactly one primary plane per CRTC
-		int crtc_bit = ffs(plane->plane->possible_crtcs) - 1;
-
-		// This would be a kernel bug
-		assert(crtc_bit >= 0 && (size_t)crtc_bit < device->crtcs_len);
-
-		struct glider_drm_crtc *crtc = &device->crtcs[crtc_bit];
-		crtc->primary_plane = plane;
+		for (size_t j = 0; j < device->crtcs_len; j++) {
+			struct glider_drm_crtc *crtc = &device->crtcs[j];
+			if (plane->plane->possible_crtcs & (1 << j) &&
+					crtc->primary_plane == NULL) {
+				crtc->primary_plane = plane;
+				break;
+			}
+		}
 	}
 	for (size_t i = 0; i < device->crtcs_len; i++) {
 		assert(device->crtcs[i].primary_plane != NULL);
