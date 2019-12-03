@@ -28,7 +28,7 @@ struct glider_buffer {
 		struct wl_signal release;
 	} events;
 
-	struct wlr_dmabuf_attributes dmabuf_attribs;
+	struct wlr_dmabuf_attributes dmabuf_attribs; // cached DMA-BUF attribs
 };
 
 struct glider_allocator;
