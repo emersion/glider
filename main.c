@@ -4,7 +4,7 @@
 #include <wlr/backend/libinput.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
-#include "allocator.h"
+#include "gbm_allocator.h"
 #include "backend/backend.h"
 #include "renderer.h"
 #include "server.h"
@@ -56,12 +56,14 @@ int main(int argc, char *argv[]) {
 
 	// TODO: multi-GPU
 	int fd = glider_drm_backend_get_primary_fd(drm_backend);
-	server.allocator = glider_gbm_allocator_create(fd);
-	if (server.allocator == NULL) {
+	server.gbm_allocator = glider_gbm_allocator_create(fd);
+	if (server.gbm_allocator == NULL) {
 		return 1;
 	}
+	server.allocator = &server.gbm_allocator->base;
 
-	server.renderer = glider_gbm_renderer_create(server.allocator);
+	server.renderer =
+		glider_gbm_renderer_create(server.gbm_allocator->gbm_device);
 	if (server.renderer == NULL) {
 		return 1;
 	}

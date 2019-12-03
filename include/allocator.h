@@ -1,7 +1,6 @@
 #ifndef GLIDER_ALLOCATOR_H
 #define GLIDER_ALLOCATOR_H
 
-#include <gbm.h>
 #include <stdbool.h>
 #include <wayland-server-core.h>
 #include <wlr/render/dmabuf.h>
@@ -32,10 +31,16 @@ struct glider_buffer {
 	struct wlr_dmabuf_attributes dmabuf_attribs;
 };
 
-// TODO: turn this into an interface
-struct glider_allocator {
-	struct gbm_device *gbm_device;
+struct glider_allocator;
 
+struct glider_allocator_interface {
+	struct glider_buffer *(*create_buffer)(struct glider_allocator *alloc,
+		int width, int height, const struct wlr_drm_format *format);
+	void (*destroy)(struct glider_allocator *alloc);
+};
+
+struct glider_allocator {
+	const struct glider_allocator_interface *impl;
 	struct {
 		struct wl_signal destroy;
 	} events;
@@ -57,6 +62,8 @@ void glider_buffer_init(struct glider_buffer *buffer,
 	const struct glider_buffer_interface *impl, int width, int height,
 	uint32_t format, uint64_t modifier);
 
-struct glider_allocator *glider_gbm_allocator_create(int render_fd);
+// For glider_allocator implementors
+void glider_allocator_init(struct glider_allocator *alloc,
+	const struct glider_allocator_interface *impl);
 
 #endif

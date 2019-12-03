@@ -6,8 +6,7 @@
 #include "allocator.h"
 #include "renderer.h"
 
-struct glider_renderer *glider_gbm_renderer_create(
-		struct glider_allocator *alloc) {
+struct glider_renderer *glider_gbm_renderer_create(struct gbm_device *device) {
 	struct glider_renderer *renderer = calloc(1, sizeof(*renderer));
 	if (renderer == NULL) {
 		return NULL;
@@ -24,7 +23,7 @@ struct glider_renderer *glider_gbm_renderer_create(
 	};
 
 	renderer->renderer = wlr_renderer_autocreate(&renderer->egl,
-		EGL_PLATFORM_GBM_MESA, alloc->gbm_device,
+		EGL_PLATFORM_GBM_MESA, device,
 		config_attribs, GBM_FORMAT_ARGB8888);
 	if (renderer->renderer == NULL) {
 		free(renderer);

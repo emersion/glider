@@ -96,3 +96,46 @@ static const struct glider_buffer_interface buffer_impl = {
 	.destroy = buffer_destroy,
 	.get_dmabuf = buffer_get_dmabuf,
 };
+
+static const struct glider_allocator_interface allocator_impl;
+
+static struct glider_gbm_allocator *get_gbm_alloc_from_alloc(
+		struct glider_allocator *alloc) {
+	assert(alloc->impl == &allocator_impl);
+	return (struct glider_gbm_allocator *)alloc;
+}
+
+struct glider_gbm_allocator *glider_gbm_allocator_create(int fd) {
+	struct glider_gbm_allocator *alloc = calloc(1, sizeof(*alloc));
+	if (alloc == NULL) {
+		return NULL;
+	}
+	glider_allocator_init(&alloc->base, &allocator_impl);
+
+	alloc->gbm_device = gbm_create_device(fd);
+	if (alloc->gbm_device == NULL) {
+		wlr_log(WLR_ERROR, "gbm_create_device failed");
+		free(alloc);
+		return NULL;
+	}
+
+	return alloc;
+}
+
+static void allocator_destroy(struct glider_allocator *glider_alloc) {
+	struct glider_gbm_allocator *alloc = get_gbm_alloc_from_alloc(glider_alloc);
+	gbm_device_destroy(alloc->gbm_device);
+	free(alloc);
+}
+
+static struct glider_buffer *allocator_create_buffer(
+		struct glider_allocator *glider_alloc, int width, int height,
+		const struct wlr_drm_format *format) {
+	struct glider_gbm_allocator *alloc = get_gbm_alloc_from_alloc(glider_alloc);
+	return glider_gbm_buffer_create(alloc->gbm_device, width, height, format);
+}
+
+static const struct glider_allocator_interface allocator_impl = {
+	.destroy = allocator_destroy,
+	.create_buffer = allocator_create_buffer,
+};

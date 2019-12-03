@@ -5,6 +5,7 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <gbm.h>
 #include <stdbool.h>
 #include <wlr/render/egl.h>
 
@@ -28,8 +29,7 @@ struct glider_renderer {
 	struct glider_renderer_buffer *current_buffer;
 };
 
-struct glider_renderer *glider_gbm_renderer_create(
-	struct glider_allocator *alloc);
+struct glider_renderer *glider_gbm_renderer_create(struct gbm_device *device);
 void glider_renderer_destroy(struct glider_renderer *renderer);
 bool glider_renderer_begin(struct glider_renderer *renderer,
 	struct glider_buffer *buffer);
