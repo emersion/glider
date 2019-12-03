@@ -28,7 +28,6 @@ struct glider_server {
 	struct wl_display *display;
 	struct wlr_backend *backend;
 	struct glider_allocator *allocator;
-	struct glider_gbm_allocator *gbm_allocator;
 	struct glider_renderer *renderer;
 	struct wlr_xdg_shell *xdg_shell;
 

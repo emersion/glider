@@ -56,14 +56,15 @@ int main(int argc, char *argv[]) {
 
 	// TODO: multi-GPU
 	int fd = glider_drm_backend_get_primary_fd(drm_backend);
-	server.gbm_allocator = glider_gbm_allocator_create(fd);
-	if (server.gbm_allocator == NULL) {
+	struct glider_gbm_allocator *gbm_allocator =
+		glider_gbm_allocator_create(fd);
+	if (gbm_allocator == NULL) {
 		return 1;
 	}
-	server.allocator = &server.gbm_allocator->base;
+	server.allocator = &gbm_allocator->base;
 
 	server.renderer =
-		glider_gbm_renderer_create(server.gbm_allocator->gbm_device);
+		glider_gbm_renderer_create(gbm_allocator->gbm_device);
 	if (server.renderer == NULL) {
 		return 1;
 	}
