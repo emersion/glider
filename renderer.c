@@ -22,6 +22,8 @@ struct glider_renderer *glider_gbm_renderer_create(struct gbm_device *device) {
 		EGL_NONE,
 	};
 
+	// We're not going to allocate buffers with OpenGL, so the format doesn't
+	// matter.
 	renderer->renderer = wlr_renderer_autocreate(&renderer->egl,
 		EGL_PLATFORM_GBM_MESA, device,
 		config_attribs, GBM_FORMAT_ARGB8888);
