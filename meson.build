@@ -63,6 +63,7 @@ executable(
 		'renderer.c',
 		'swapchain.c',
 		'wlr_buffer.c',
+		'xdg_shell.c',
 	),
 	dependencies: [
 		egl,

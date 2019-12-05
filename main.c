@@ -82,6 +82,10 @@ int main(int argc, char *argv[]) {
 	server.new_input.notify = handle_new_input;
 	wl_signal_add(&server.backend->events.new_input, &server.new_input);
 
+	server.new_xdg_surface.notify = handle_new_xdg_surface;
+	wl_signal_add(&server.xdg_shell->events.new_surface,
+		&server.new_xdg_surface);
+
 	if (!wlr_backend_start(server.backend)) {
 		return 1;
 	}

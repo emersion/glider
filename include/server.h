@@ -36,9 +36,11 @@ struct glider_server {
 
 	struct wl_listener new_output;
 	struct wl_listener new_input;
+	struct wl_listener new_xdg_surface;
 };
 
 void handle_new_output(struct wl_listener *listener, void *data);
 void handle_new_input(struct wl_listener *listener, void *data);
+void handle_new_xdg_surface(struct wl_listener *listener, void *data);
 
 #endif
