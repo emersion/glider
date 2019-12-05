@@ -80,6 +80,7 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	glider_swapchain_destroy(output->bg_swapchain);
 	liftoff_layer_destroy(output->bg_layer);
 	wl_list_remove(&output->destroy.link);
+	wl_list_remove(&output->link);
 	free(output);
 }
 
@@ -96,6 +97,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	struct glider_output *output = calloc(1, sizeof(*output));
 	output->output = wlr_output;
 	output->server = server;
+	wl_list_insert(&server->outputs, &output->link);
 
 	output->destroy.notify = handle_destroy;
 	wl_signal_add(&wlr_output->events.destroy, &output->destroy);

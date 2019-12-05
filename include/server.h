@@ -6,6 +6,7 @@
 struct glider_output {
 	struct glider_server *server;
 	struct wlr_output *output;
+	struct wl_list link; // glider_server.outputs
 
 	struct liftoff_output *liftoff_output;
 
@@ -30,6 +31,8 @@ struct glider_server {
 	struct glider_allocator *allocator;
 	struct glider_renderer *renderer;
 	struct wlr_xdg_shell *xdg_shell;
+
+	struct wl_list outputs; // glider_output.link
 
 	struct wl_listener new_output;
 	struct wl_listener new_input;

@@ -11,6 +11,7 @@
 
 int main(int argc, char *argv[]) {
 	struct glider_server server = {0};
+	wl_list_init(&server.outputs);
 
 	wlr_log_init(WLR_DEBUG, NULL);
 
