@@ -69,6 +69,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	wlr_renderer_init_wl_display(server.renderer->renderer, server.display);
+
 	wlr_compositor_create(server.display, server.renderer->renderer);
 
 	server.xdg_shell = wlr_xdg_shell_create(server.display);
