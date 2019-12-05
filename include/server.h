@@ -33,6 +33,7 @@ struct glider_server {
 	struct wlr_xdg_shell *xdg_shell;
 
 	struct wl_list outputs; // glider_output.link
+	struct wl_list surfaces; // glider_surface.link
 
 	struct wl_listener new_output;
 	struct wl_listener new_input;
@@ -42,5 +43,10 @@ struct glider_server {
 void handle_new_output(struct wl_listener *listener, void *data);
 void handle_new_input(struct wl_listener *listener, void *data);
 void handle_new_xdg_surface(struct wl_listener *listener, void *data);
+
+struct glider_buffer;
+
+bool glider_output_attach_buffer(struct glider_output *output,
+	struct glider_buffer *buf, struct liftoff_layer *layer);
 
 #endif

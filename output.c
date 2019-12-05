@@ -9,6 +9,7 @@
 #include "renderer.h"
 #include "server.h"
 #include "swapchain.h"
+#include "xdg_shell.h"
 
 static bool output_render_bg(struct glider_output *output,
 		struct glider_buffer *buf) {
@@ -24,7 +25,7 @@ static bool output_render_bg(struct glider_output *output,
 	return true;
 }
 
-static bool attach_buffer(struct glider_output *output,
+bool glider_output_attach_buffer(struct glider_output *output,
 		struct glider_buffer *buf, struct liftoff_layer *layer) {
 	if (!glider_drm_connector_attach(output->output, buf, layer)) {
 		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
@@ -50,7 +51,7 @@ static void output_push_frame(struct glider_output *output) {
 	if (!output_render_bg(output, buf)) {
 		return;
 	}
-	if (!attach_buffer(output, buf, output->bg_layer)) {
+	if (!glider_output_attach_buffer(output, buf, output->bg_layer)) {
 		return;
 	}
 	if (!glider_drm_connector_commit(output->output)) {
@@ -65,7 +66,7 @@ static bool output_test(struct glider_output *output) {
 		wlr_log(WLR_ERROR, "Failed to get next buffer");
 		return false;
 	}
-	if (!attach_buffer(output, buf, output->bg_layer)) {
+	if (!glider_output_attach_buffer(output, buf, output->bg_layer)) {
 		return false;
 	}
 	if (!glider_drm_connector_test(output->output)) {
@@ -87,6 +88,14 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 static void handle_frame(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, frame);
 	output_push_frame(output);
+
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+
+	struct glider_surface *surface;
+	wl_list_for_each(surface, &output->server->surfaces, link) {
+		wlr_surface_send_frame_done(surface->wlr_surface, &t);
+	}
 }
 
 void handle_new_output(struct wl_listener *listener, void *data) {

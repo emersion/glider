@@ -37,6 +37,9 @@ struct glider_buffer *glider_wlr_buffer_create(struct wlr_buffer *wlr_buffer) {
 		format, modifier);
 	buffer->wlr_buffer = wlr_buffer_ref(wlr_buffer);
 
+	wlr_log(WLR_DEBUG, "Imported wlr_buffer %dx%d (format 0x%"PRIX32", "
+		"modifier %"PRIX64")", width, height, format, modifier);
+
 	return &buffer->base;
 }
 

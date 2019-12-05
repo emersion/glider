@@ -12,6 +12,7 @@
 int main(int argc, char *argv[]) {
 	struct glider_server server = {0};
 	wl_list_init(&server.outputs);
+	wl_list_init(&server.surfaces);
 
 	wlr_log_init(WLR_DEBUG, NULL);
 
