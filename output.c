@@ -95,6 +95,7 @@ static void handle_frame(struct wl_listener *listener, void *data) {
 	struct glider_surface *surface;
 	wl_list_for_each(surface, &output->server->surfaces, link) {
 		wlr_surface_send_frame_done(surface->wlr_surface, &t);
+		surface->pending_buffer = NULL;
 	}
 }
 
