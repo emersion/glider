@@ -5,6 +5,7 @@
 
 struct glider_surface {
 	struct wlr_surface *wlr_surface;
+	struct glider_server *server;
 	struct wl_list link;
 
 	struct glider_buffer *pending_buffer;

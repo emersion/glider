@@ -44,6 +44,7 @@ void handle_new_xdg_surface(struct wl_listener *listener, void *data) {
 
 	struct glider_surface *surface = calloc(1, sizeof(*surface));
 	surface->wlr_surface = xdg_surface->surface;
+	surface->server = server;
 	wl_list_insert(&server->surfaces, &surface->link);
 
 	surface->destroy.notify = handle_surface_destroy;
