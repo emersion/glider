@@ -13,6 +13,13 @@ static struct glider_wlr_buffer *get_wlr_buffer_from_buffer(
 	return (struct glider_wlr_buffer *)buffer;
 }
 
+static void buffer_handle_release(struct wl_listener *listener, void *data) {
+	struct glider_wlr_buffer *buffer =
+		wl_container_of(listener, buffer, release);
+	wlr_buffer_unref(buffer->wlr_buffer);
+	buffer->wlr_buffer = NULL;
+}
+
 struct glider_buffer *glider_wlr_buffer_create(struct wlr_buffer *wlr_buffer) {
 	if (wlr_buffer->texture == NULL) {
 		return NULL;
@@ -37,6 +44,9 @@ struct glider_buffer *glider_wlr_buffer_create(struct wlr_buffer *wlr_buffer) {
 		format, modifier);
 	buffer->wlr_buffer = wlr_buffer_ref(wlr_buffer);
 
+	buffer->release.notify = buffer_handle_release;
+	wl_signal_add(&buffer->base.events.release, &buffer->release);
+
 	wlr_log(WLR_DEBUG, "Imported wlr_buffer %dx%d (format 0x%"PRIX32", "
 		"modifier %"PRIX64")", width, height, format, modifier);
 
@@ -54,6 +64,9 @@ static bool buffer_get_dmabuf(struct glider_buffer *glider_buffer,
 		struct wlr_dmabuf_attributes *attribs) {
 	struct glider_wlr_buffer *buffer =
 		get_wlr_buffer_from_buffer(glider_buffer);
+	if (buffer->wlr_buffer == NULL) {
+		return false;
+	}
 	return wlr_buffer_get_dmabuf(buffer->wlr_buffer, attribs);
 }
 
