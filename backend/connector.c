@@ -60,10 +60,23 @@ static bool connector_commit(struct glider_drm_connector *conn,
 	if (!(flags & DRM_MODE_PAGE_FLIP_EVENT) || ret != 0) {
 		// Release buffers on test-only commit and on failure: we won't get a
 		// page-flip event
+		// TODO: we potentially release queued buffers here
+		struct glider_drm_buffer *buf, *buf_tmp;
+		wl_list_for_each_safe(buf, buf_tmp, &conn->device->buffers, link) {
+			if (buf->connector == conn &&
+					buf->state == GLIDER_DRM_BUFFER_PENDING) {
+				unlock_drm_buffer(buf);
+			}
+		}
+	}
+	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY) && ret == 0) {
+		// On a successful page-flip, mark the buffers we've just submitted
+		// to KMS.
 		struct glider_drm_buffer *buf;
 		wl_list_for_each(buf, &conn->device->buffers, link) {
-			if (buf->locked && !buf->presented && buf->connector == conn) {
-				unlock_drm_buffer(buf);
+			if (buf->connector == conn &&
+					buf->state == GLIDER_DRM_BUFFER_PENDING) {
+				buf->state = GLIDER_DRM_BUFFER_QUEUED;
 			}
 		}
 	}
@@ -166,7 +179,7 @@ static void output_destroy(struct wlr_output *output) {
 
 	struct glider_drm_buffer *buf;
 	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->locked && buf->connector == conn) {
+		if (buf->state != GLIDER_DRM_BUFFER_UNLOCKED && buf->connector == conn) {
 			unlock_drm_buffer(buf);
 		}
 	}
@@ -360,27 +373,28 @@ bool glider_drm_connector_attach(struct wlr_output *output,
 	if (drm_buffer == NULL) {
 		return false;
 	}
-	if (drm_buffer->locked) {
-		wlr_log(WLR_ERROR, "Cannot attach buffer: buffer is locked");
+	if (drm_buffer->state != GLIDER_DRM_BUFFER_UNLOCKED) {
+		wlr_log(WLR_ERROR, "Cannot attach buffer: buffer is already locked");
 		return false;
 	}
 
-	// Unlock any buffer we're going to replace
+	glider_buffer_lock(drm_buffer->buffer);
+
+	// Unlock any pending buffer we're going to replace
 	struct glider_drm_buffer *buf;
 	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->locked && !buf->presented && buf->connector == conn &&
-				buf->layer == layer) {
+		if (buf->connector == conn && buf->layer == layer &&
+				buf->state == GLIDER_DRM_BUFFER_PENDING) {
 			unlock_drm_buffer(buf);
 		}
 	}
 
 	liftoff_layer_set_property(layer, "FB_ID", drm_buffer->id);
 	// TODO: there's no guarantee the layer will be directly scanned out. If
-	// that's not the case, do not lock the buffer.
-	drm_buffer->locked = true;
+	// that's not the case, release the buffer on commit.
+	drm_buffer->state = GLIDER_DRM_BUFFER_PENDING;
 	drm_buffer->connector = conn;
 	drm_buffer->layer = layer;
-	glider_buffer_lock(drm_buffer->buffer);
 	return true;
 }
 
@@ -388,16 +402,34 @@ static int mhz_to_nsec(int mhz) {
 	return 1000000000000LL / mhz;
 }
 
+static bool has_queued_buffer(struct glider_drm_connector *conn,
+		struct liftoff_layer *layer) {
+	struct glider_drm_buffer *buf;
+	wl_list_for_each(buf, &conn->device->buffers, link) {
+		if (buf->connector == conn && buf->layer == layer &&
+				buf->state == GLIDER_DRM_BUFFER_QUEUED) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 		unsigned seq, struct timespec *t) {
+	// Release buffers that the new front buffers replaced
+	// TODO: doesn't handle liftoff_layer destroy
 	struct glider_drm_buffer *buf, *buf_tmp;
 	wl_list_for_each_safe(buf, buf_tmp, &conn->device->buffers, link) {
-		if (buf->locked && buf->connector == conn) {
-			if (buf->presented) {
-				unlock_drm_buffer(buf);
-			} else {
-				buf->presented = true;
-			}
+		if (buf->connector == conn && buf->state == GLIDER_DRM_BUFFER_CURRENT &&
+				has_queued_buffer(conn, buf->layer)) {
+			unlock_drm_buffer(buf);
+		}
+	}
+
+	// Mark queued buffers as current
+	wl_list_for_each(buf, &conn->device->buffers, link) {
+		if (buf->connector == conn && buf->state == GLIDER_DRM_BUFFER_QUEUED) {
+			buf->state = GLIDER_DRM_BUFFER_CURRENT;
 		}
 	}
 
@@ -419,8 +451,8 @@ void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 }
 
 void unlock_drm_buffer(struct glider_drm_buffer *buf) {
-	assert(buf->locked);
-	buf->locked = buf->presented = false;
+	assert(buf->state != GLIDER_DRM_BUFFER_UNLOCKED);
+	buf->state = GLIDER_DRM_BUFFER_UNLOCKED;
 	buf->connector = NULL;
 	buf->layer = NULL;
 	glider_buffer_unlock(buf->buffer);

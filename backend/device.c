@@ -352,7 +352,7 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 }
 
 static void destroy_drm_buffer(struct glider_drm_buffer *buffer) {
-	if (buffer->locked) {
+	if (buffer->state != GLIDER_DRM_BUFFER_UNLOCKED) {
 		unlock_drm_buffer(buffer);
 	}
 	if (drmModeRmFB(buffer->device->fd, buffer->id) != 0) {

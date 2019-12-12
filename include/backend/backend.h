@@ -37,6 +37,13 @@ struct glider_drm_prop {
 	uint64_t current, pending, initial;
 };
 
+enum glider_drm_buffer_state {
+	GLIDER_DRM_BUFFER_UNLOCKED,
+	GLIDER_DRM_BUFFER_PENDING, // next commit will submit this buffer
+	GLIDER_DRM_BUFFER_QUEUED, // queued to KMS for display
+	GLIDER_DRM_BUFFER_CURRENT, // current front buffer
+};
+
 struct glider_drm_buffer {
 	struct glider_drm_device *device;
 	struct glider_buffer *buffer;
@@ -44,7 +51,7 @@ struct glider_drm_buffer {
 
 	uint32_t id;
 
-	bool locked, presented;
+	enum glider_drm_buffer_state state;
 	// TODO: allow a single buffer to be displayed on multiple CRTCs
 	struct glider_drm_connector *connector;
 	struct liftoff_layer *layer;
