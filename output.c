@@ -134,7 +134,6 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	// TODO: try without modifiers if atomic test-only commit fails
 	output->bg_swapchain = glider_swapchain_create(output->server->allocator,
 		output->output->width, output->output->height, format);
 
