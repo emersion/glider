@@ -112,6 +112,8 @@ static struct glider_renderer_buffer *renderer_buffer_create(
 		(void *)eglGetProcAddress("glEGLImageTargetTexture2DOES");
 	glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, renderer_buffer->egl_image);
 
+	glBindTexture(GL_TEXTURE_2D, 0);
+
 	glGenFramebuffers(1, &renderer_buffer->gl_fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer_buffer->gl_fbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -120,6 +122,7 @@ static struct glider_renderer_buffer *renderer_buffer_create(
 		wlr_log(WLR_ERROR, "Failed to create FBO");
 		goto error;
 	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	renderer_buffer->destroy.notify = handle_buffer_destroy;
 	wl_signal_add(&buffer->events.destroy, &renderer_buffer->destroy);
