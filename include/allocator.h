@@ -21,7 +21,7 @@ struct glider_buffer {
 	uint32_t format;
 	uint64_t modifier;
 
-	size_t n_locks;
+	size_t n_refs, n_locks;
 
 	struct {
 		struct wl_signal destroy;
@@ -41,20 +41,38 @@ struct glider_allocator_interface {
 
 struct glider_allocator {
 	const struct glider_allocator_interface *impl;
+
 	struct {
 		struct wl_signal destroy;
 	} events;
 };
 
 void glider_allocator_destroy(struct glider_allocator *alloc);
+/**
+ * Allocate a new buffer.
+ *
+ * The returned buffer is referenced. When the caller is done with it, they
+ * must unreference it.
+ */
 struct glider_buffer *glider_allocator_create_buffer(
 	struct glider_allocator *alloc, int width, int height,
 	const struct wlr_drm_format *format);
 
-void glider_buffer_destroy(struct glider_buffer *buffer);
+void glider_buffer_unref(struct glider_buffer *buffer);
 bool glider_buffer_get_dmabuf(struct glider_buffer *buffer,
 	struct wlr_dmabuf_attributes *attribs);
+/**
+ * Mark the buffer as in-use.
+ *
+ * Buffer consumers call this function while they need to read the buffer, then
+ * unlock it. The buffer won't be destroyed while locked.
+ */
 void glider_buffer_lock(struct glider_buffer *buffer);
+/**
+ * Release the buffer.
+ *
+ * This can destroy the buffer.
+ */
 void glider_buffer_unlock(struct glider_buffer *buffer);
 
 // For glider_buffer implementors

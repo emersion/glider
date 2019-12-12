@@ -390,8 +390,8 @@ static int mhz_to_nsec(int mhz) {
 
 void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 		unsigned seq, struct timespec *t) {
-	struct glider_drm_buffer *buf;
-	wl_list_for_each(buf, &conn->device->buffers, link) {
+	struct glider_drm_buffer *buf, *buf_tmp;
+	wl_list_for_each_safe(buf, buf_tmp, &conn->device->buffers, link) {
 		if (buf->locked && buf->connector == conn) {
 			if (buf->presented) {
 				unlock_drm_buffer(buf);

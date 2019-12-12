@@ -14,6 +14,12 @@ struct glider_wlr_buffer {
 	struct wl_listener release;
 };
 
+/**
+ * Import a wlr_buffer.
+ *
+ * The returned buffer is locked. When the caller is done with it, they must
+ * unlock it.
+ */
 struct glider_buffer *glider_wlr_buffer_create(struct wlr_buffer *buffer);
 
 #endif

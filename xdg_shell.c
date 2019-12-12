@@ -20,9 +20,6 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 
 	liftoff_layer_set_property(surface->layer, "FB_ID", 0);
 
-	glider_buffer_destroy(surface->pending_buffer);
-	surface->pending_buffer = NULL;
-
 	if (surface->primary_output == NULL || wlr_buffer == NULL) {
 		return;
 	}
@@ -30,11 +27,11 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 	struct glider_buffer *buffer = glider_wlr_buffer_create(wlr_buffer);
 	if (!glider_output_attach_buffer(surface->primary_output, buffer,
 			surface->layer)) {
-		glider_buffer_destroy(buffer);
+		glider_buffer_unlock(buffer);
 		return;
 	}
 
-	surface->pending_buffer = buffer;
+	glider_buffer_unlock(buffer);
 }
 
 void handle_new_xdg_surface(struct wl_listener *listener, void *data) {

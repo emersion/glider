@@ -49,15 +49,18 @@ static void output_push_frame(struct glider_output *output) {
 		return;
 	}
 	if (!output_render_bg(output, buf)) {
-		return;
+		goto out;
 	}
 	if (!glider_output_attach_buffer(output, buf, output->bg_layer)) {
-		return;
+		goto out;
 	}
 	if (!glider_drm_connector_commit(output->output)) {
 		wlr_log(WLR_ERROR, "Failed to commit connector");
-		return;
+		goto out;
 	}
+
+out:
+	glider_buffer_unlock(buf);
 }
 
 static bool output_test(struct glider_output *output) {
@@ -67,13 +70,18 @@ static bool output_test(struct glider_output *output) {
 		return false;
 	}
 	if (!glider_output_attach_buffer(output, buf, output->bg_layer)) {
-		return false;
+		goto error_buffer;
 	}
 	if (!glider_drm_connector_test(output->output)) {
 		wlr_log(WLR_DEBUG, "Connector test failed");
-		return false;
+		goto error_buffer;
 	}
+	glider_buffer_unlock(buf);
 	return true;
+
+error_buffer:
+	glider_buffer_unlock(buf);
+	return false;
 }
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
@@ -95,7 +103,6 @@ static void handle_frame(struct wl_listener *listener, void *data) {
 	struct glider_surface *surface;
 	wl_list_for_each(surface, &output->server->surfaces, link) {
 		wlr_surface_send_frame_done(surface->wlr_surface, &t);
-		surface->pending_buffer = NULL;
 	}
 }
 

@@ -40,7 +40,7 @@ struct glider_swapchain *glider_swapchain_create(
 
 void glider_swapchain_destroy(struct glider_swapchain *swapchain) {
 	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {
-		glider_buffer_destroy(swapchain->slots[i].buffer);
+		glider_buffer_unref(swapchain->slots[i].buffer);
 	}
 	wl_list_remove(&swapchain->allocator_destroy.link);
 	free(swapchain->format);
@@ -78,6 +78,7 @@ static struct glider_buffer *slot_acquire(struct glider_swapchain_slot *slot) {
 	slot->release.notify = slot_handle_release;
 	wl_signal_add(&slot->buffer->events.release, &slot->release);
 
+	glider_buffer_lock(slot->buffer);
 	return slot->buffer;
 }
 

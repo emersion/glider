@@ -8,8 +8,6 @@ struct glider_surface {
 	struct glider_server *server;
 	struct wl_list link;
 
-	struct glider_buffer *pending_buffer;
-
 	struct glider_output *primary_output;
 	// TODO: support being displayed on more than one output
 	struct liftoff_layer *layer;

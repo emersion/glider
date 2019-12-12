@@ -30,6 +30,12 @@ struct glider_swapchain *glider_swapchain_create(
 	struct glider_allocator *alloc, int width, int height,
 	const struct wlr_drm_format *format);
 void glider_swapchain_destroy(struct glider_swapchain *swapchain);
+/**
+ * Acquire a buffer from the swap chain.
+ *
+ * The returned buffer is locked. When the caller is done with it, they must
+ * unlock it.
+ */
 struct glider_buffer *glider_swapchain_acquire(
 	struct glider_swapchain *swapchain);
 // TODO: add glider_swapchain_resize

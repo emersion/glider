@@ -34,14 +34,25 @@ void glider_buffer_init(struct glider_buffer *buffer,
 	buffer->height = height;
 	buffer->format = format;
 	buffer->modifier = modifier;
+	buffer->n_refs = 1;
 	wl_signal_init(&buffer->events.destroy);
 	wl_signal_init(&buffer->events.release);
 }
 
-void glider_buffer_destroy(struct glider_buffer *buffer) {
+static void buffer_ref(struct glider_buffer *buffer) {
+	buffer->n_refs++;
+}
+
+void glider_buffer_unref(struct glider_buffer *buffer) {
 	if (buffer == NULL) {
 		return;
 	}
+	assert(buffer->n_refs > 0);
+	buffer->n_refs--;
+	if (buffer->n_refs > 0) {
+		return;
+	}
+
 	wl_signal_emit(&buffer->events.destroy, NULL);
 	if (buffer->dmabuf_attribs.n_planes > 0) {
 		wlr_dmabuf_attributes_finish(&buffer->dmabuf_attribs);
@@ -67,6 +78,7 @@ bool glider_buffer_get_dmabuf(struct glider_buffer *buffer,
 
 void glider_buffer_lock(struct glider_buffer *buffer) {
 	buffer->n_locks++;
+	buffer_ref(buffer);
 }
 
 void glider_buffer_unlock(struct glider_buffer *buffer) {
@@ -75,4 +87,6 @@ void glider_buffer_unlock(struct glider_buffer *buffer) {
 	if (buffer->n_locks == 0) {
 		wl_signal_emit(&buffer->events.release, NULL);
 	}
+
+	glider_buffer_unref(buffer);
 }

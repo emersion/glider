@@ -44,6 +44,9 @@ struct glider_buffer *glider_wlr_buffer_create(struct wlr_buffer *wlr_buffer) {
 		format, modifier);
 	buffer->wlr_buffer = wlr_buffer_ref(wlr_buffer);
 
+	glider_buffer_lock(&buffer->base);
+	glider_buffer_unref(&buffer->base);
+
 	buffer->release.notify = buffer_handle_release;
 	wl_signal_add(&buffer->base.events.release, &buffer->release);
 
