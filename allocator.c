@@ -54,9 +54,6 @@ void glider_buffer_unref(struct glider_buffer *buffer) {
 	}
 
 	wl_signal_emit(&buffer->events.destroy, NULL);
-	if (buffer->dmabuf_attribs.n_planes > 0) {
-		wlr_dmabuf_attributes_finish(&buffer->dmabuf_attribs);
-	}
 	buffer->impl->destroy(buffer);
 }
 
