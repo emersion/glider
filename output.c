@@ -43,15 +43,12 @@ bool glider_output_attach_buffer(struct glider_output *output,
 }
 
 static void output_push_frame(struct glider_output *output) {
-	struct glider_buffer *buf = glider_swapchain_acquire(output->bg_swapchain);
+	struct glider_buffer *buf = glider_swapchain_acquire(output->swapchain);
 	if (buf == NULL) {
 		wlr_log(WLR_ERROR, "Failed to get next buffer");
 		return;
 	}
-	if (!output_render_bg(output, buf)) {
-		goto out;
-	}
-	if (!glider_output_attach_buffer(output, buf, output->bg_layer)) {
+	if (!glider_output_attach_buffer(output, buf, output->composition_layer)) {
 		goto out;
 	}
 	if (!glider_drm_connector_commit(output->output)) {
@@ -64,12 +61,12 @@ out:
 }
 
 static bool output_test(struct glider_output *output) {
-	struct glider_buffer *buf = glider_swapchain_acquire(output->bg_swapchain);
+	struct glider_buffer *buf = glider_swapchain_acquire(output->swapchain);
 	if (buf == NULL) {
 		wlr_log(WLR_ERROR, "Failed to get next buffer");
 		return false;
 	}
-	if (!glider_output_attach_buffer(output, buf, output->bg_layer)) {
+	if (!glider_output_attach_buffer(output, buf, output->composition_layer)) {
 		goto error_buffer;
 	}
 	if (!glider_drm_connector_test(output->output)) {
@@ -86,8 +83,10 @@ error_buffer:
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
-	glider_swapchain_destroy(output->bg_swapchain);
+	glider_buffer_unref(output->bg_buffer);
 	liftoff_layer_destroy(output->bg_layer);
+	glider_swapchain_destroy(output->swapchain);
+	liftoff_layer_destroy(output->composition_layer);
 	wl_list_remove(&output->destroy.link);
 	wl_list_remove(&output->link);
 	free(output);
@@ -135,7 +134,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	output->bg_layer = liftoff_layer_create(output->liftoff_output);
+	output->composition_layer = liftoff_layer_create(output->liftoff_output);
 
 	const struct wlr_drm_format_set *formats =
 		glider_drm_connector_get_primary_formats(output->output);
@@ -151,21 +150,42 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		return;
 	}
 
-	output->bg_swapchain = glider_swapchain_create(output->server->allocator,
+	struct wlr_drm_format format_no_modifiers = { .format = format->format };
+
+	output->swapchain = glider_swapchain_create(output->server->allocator,
 		output->output->width, output->output->height, format);
 
 	if (!output_test(output)) {
 		wlr_log(WLR_DEBUG, "Failed to enable output, retrying without modifiers");
-		glider_swapchain_destroy(output->bg_swapchain);
-		struct wlr_drm_format format_no_modifiers = {
-			.format = format->format,
-		};
-		output->bg_swapchain = glider_swapchain_create(output->server->allocator,
-			output->output->width, output->output->height, &format_no_modifiers);
+		format = &format_no_modifiers;
+
+		glider_swapchain_destroy(output->swapchain);
+		output->swapchain = glider_swapchain_create(
+			output->server->allocator, output->output->width,
+			output->output->height, &format_no_modifiers);
 	}
 
 	if (!output_test(output)) {
-		wlr_log(WLR_ERROR, "Failed to enabled output");
+		wlr_log(WLR_ERROR, "Failed to enable output");
+		return;
+	}
+
+	liftoff_output_set_composition_layer(output->liftoff_output,
+		output->composition_layer);
+
+	output->bg_layer = liftoff_layer_create(output->liftoff_output);
+
+	output->bg_buffer = glider_allocator_create_buffer(server->allocator,
+		output->output->width, output->output->height, format);
+	if (output->bg_buffer == NULL) {
+		wlr_log(WLR_ERROR, "Failed to create background buffer");
+		return;
+	}
+	if (!output_render_bg(output, output->bg_buffer)) {
+		return;
+	}
+	if (!glider_output_attach_buffer(output, output->bg_buffer,
+			output->bg_layer)) {
 		return;
 	}
 
