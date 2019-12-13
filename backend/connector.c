@@ -57,18 +57,6 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		move_drm_prop_values(conn->crtc->props,
 			GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
 	}
-	if (!(flags & DRM_MODE_PAGE_FLIP_EVENT) || ret != 0) {
-		// Release buffers on test-only commit and on failure: we won't get a
-		// page-flip event
-		// TODO: we potentially release queued buffers here
-		struct glider_drm_buffer *buf, *buf_tmp;
-		wl_list_for_each_safe(buf, buf_tmp, &conn->device->buffers, link) {
-			if (buf->connector == conn &&
-					buf->state == GLIDER_DRM_BUFFER_PENDING) {
-				unlock_drm_buffer(buf);
-			}
-		}
-	}
 	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY) && ret == 0) {
 		// On a successful page-flip, mark the buffers we've just submitted
 		// to KMS.
