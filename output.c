@@ -25,12 +25,57 @@ static bool output_render_bg(struct glider_output *output,
 	return true;
 }
 
-bool glider_output_attach_buffer(struct glider_output *output,
-		struct glider_buffer *buf, struct liftoff_layer *layer) {
-	if (!glider_drm_connector_attach(output->output, buf, layer)) {
-		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
+static bool output_needs_render(struct glider_output *output) {
+	if (liftoff_layer_get_plane_id(output->bg_layer) == 0) {
+		return true;
+	}
+
+	struct glider_surface *surface;
+	wl_list_for_each(surface, &output->server->surfaces, link) {
+		if (liftoff_layer_get_plane_id(surface->layer) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool output_render(struct glider_output *output,
+		struct glider_buffer *buf) {
+	struct glider_server *server = output->server;
+
+	wlr_log(WLR_DEBUG, "Rendering output");
+
+	if (!glider_renderer_begin(server->renderer, buf)) {
+		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
 		return false;
 	}
+
+	wlr_renderer_clear(server->renderer->renderer,
+		(float[4]){ 0.0, 1.0, 0.0, 1.0 });
+
+	struct glider_surface *surface;
+	wl_list_for_each(surface, &output->server->surfaces, link) {
+		if (liftoff_layer_get_plane_id(surface->layer) != 0) {
+			continue;
+		}
+
+		struct wlr_texture *texture =
+			wlr_surface_get_texture(surface->wlr_surface);
+		if (texture == NULL) {
+			continue;
+		}
+
+		wlr_render_texture(server->renderer->renderer, texture,
+			output->output->transform_matrix, 0, 0, 1.0);
+	}
+
+	glider_renderer_end(server->renderer);
+	return true;
+}
+
+bool glider_output_attach_buffer(struct glider_output *output,
+		struct glider_buffer *buf, struct liftoff_layer *layer) {
 	liftoff_layer_set_property(layer, "CRTC_X", 0);
 	liftoff_layer_set_property(layer, "CRTC_Y", 0);
 	liftoff_layer_set_property(layer, "CRTC_W", buf->width);
@@ -39,25 +84,11 @@ bool glider_output_attach_buffer(struct glider_output *output,
 	liftoff_layer_set_property(layer, "SRC_Y", 0);
 	liftoff_layer_set_property(layer, "SRC_W", buf->width << 16);
 	liftoff_layer_set_property(layer, "SRC_H", buf->height << 16);
+	if (!glider_drm_connector_attach(output->output, buf, layer)) {
+		wlr_log(WLR_ERROR, "Failed to attach buffer to layer");
+		return false;
+	}
 	return true;
-}
-
-static void output_push_frame(struct glider_output *output) {
-	struct glider_buffer *buf = glider_swapchain_acquire(output->swapchain);
-	if (buf == NULL) {
-		wlr_log(WLR_ERROR, "Failed to get next buffer");
-		return;
-	}
-	if (!glider_output_attach_buffer(output, buf, output->composition_layer)) {
-		goto out;
-	}
-	if (!glider_drm_connector_commit(output->output)) {
-		wlr_log(WLR_ERROR, "Failed to commit connector");
-		goto out;
-	}
-
-out:
-	glider_buffer_unlock(buf);
 }
 
 static bool output_test(struct glider_output *output) {
@@ -79,6 +110,37 @@ static bool output_test(struct glider_output *output) {
 error_buffer:
 	glider_buffer_unlock(buf);
 	return false;
+}
+
+static void output_push_frame(struct glider_output *output) {
+	if (!output_test(output)) {
+		return;
+	}
+
+	struct glider_buffer *buf = NULL;
+	if (output_needs_render(output)) {
+		buf = glider_swapchain_acquire(output->swapchain);
+		if (buf == NULL) {
+			wlr_log(WLR_ERROR, "Failed to get next buffer");
+			return;
+		}
+		if (!output_render(output, buf)) {
+			goto out;
+		}
+		if (!glider_output_attach_buffer(output, buf, output->composition_layer)) {
+			goto out;
+		}
+	}
+
+	if (!glider_drm_connector_commit(output->output)) {
+		wlr_log(WLR_ERROR, "Failed to commit connector");
+		goto out;
+	}
+
+out:
+	if (buf != NULL) {
+		glider_buffer_unlock(buf);
+	}
 }
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
