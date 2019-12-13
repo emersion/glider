@@ -19,6 +19,7 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 	struct wlr_buffer *wlr_buffer = surface->wlr_surface->buffer;
 
 	liftoff_layer_set_property(surface->layer, "FB_ID", 0);
+	liftoff_layer_set_property(surface->layer, "zpos", 2);
 
 	if (surface->primary_output == NULL || wlr_buffer == NULL) {
 		return;

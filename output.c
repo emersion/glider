@@ -174,6 +174,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		output->composition_layer);
 
 	output->bg_layer = liftoff_layer_create(output->liftoff_output);
+	liftoff_layer_set_property(output->bg_layer, "zpos", 1);
 
 	output->bg_buffer = glider_allocator_create_buffer(server->allocator,
 		output->output->width, output->output->height, format);
