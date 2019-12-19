@@ -1,9 +1,10 @@
 #include <libliftoff.h>
 #include <stdlib.h>
+#include <wlr/types/wlr_xdg_shell.h>
 #include "allocator.h"
 #include "server.h"
 #include "wlr_buffer.h"
-#include "xdg_shell.h"
+#include "surface.h"
 
 static void surface_output_destroy(struct glider_surface_output *so) {
 	if (so->surface->primary_output == so->output) {

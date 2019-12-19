@@ -1,7 +1,7 @@
-#ifndef GLIDER_XDG_SHELL_H
-#define GLIDER_XDG_SHELL_H
+#ifndef GLIDER_SURFACE_H
+#define GLIDER_SURFACE_H
 
-#include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/types/wlr_surface.h>
 
 struct glider_surface_output {
 	struct glider_output *output;

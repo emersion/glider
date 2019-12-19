@@ -9,7 +9,7 @@
 #include "renderer.h"
 #include "server.h"
 #include "swapchain.h"
-#include "xdg_shell.h"
+#include "surface.h"
 
 static bool output_render_bg(struct glider_output *output,
 		struct glider_buffer *buf) {
