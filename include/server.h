@@ -16,6 +16,10 @@ struct glider_output {
 	struct glider_swapchain *swapchain;
 	struct liftoff_layer *composition_layer;
 
+	struct {
+		struct wl_signal destroy;
+	} events;
+
 	struct wl_listener destroy;
 	struct wl_listener frame;
 };

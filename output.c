@@ -32,7 +32,9 @@ static bool output_needs_render(struct glider_output *output) {
 
 	struct glider_surface *surface;
 	wl_list_for_each(surface, &output->server->surfaces, link) {
-		if (liftoff_layer_get_plane_id(surface->layer) == 0) {
+		struct glider_surface_output *so =
+			glider_surface_get_output(surface, output);
+		if (so != NULL && liftoff_layer_get_plane_id(so->layer) == 0) {
 			return true;
 		}
 	}
@@ -56,7 +58,9 @@ static bool output_render(struct glider_output *output,
 
 	struct glider_surface *surface;
 	wl_list_for_each(surface, &output->server->surfaces, link) {
-		if (liftoff_layer_get_plane_id(surface->layer) != 0) {
+		struct glider_surface_output *so =
+			glider_surface_get_output(surface, output);
+		if (so == NULL || liftoff_layer_get_plane_id(so->layer) != 0) {
 			continue;
 		}
 
@@ -145,6 +149,7 @@ out:
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
+	wl_signal_emit(&output->events.destroy, NULL);
 	glider_buffer_unref(output->bg_buffer);
 	liftoff_layer_destroy(output->bg_layer);
 	glider_swapchain_destroy(output->swapchain);
@@ -163,7 +168,9 @@ static void handle_frame(struct wl_listener *listener, void *data) {
 
 	struct glider_surface *surface;
 	wl_list_for_each(surface, &output->server->surfaces, link) {
-		wlr_surface_send_frame_done(surface->wlr_surface, &t);
+		if (surface->primary_output == output) {
+			wlr_surface_send_frame_done(surface->wlr_surface, &t);
+		}
 	}
 }
 
@@ -176,6 +183,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	output->output = wlr_output;
 	output->server = server;
 	wl_list_insert(&server->outputs, &output->link);
+	wl_signal_init(&output->events.destroy);
 
 	output->destroy.notify = handle_destroy;
 	wl_signal_add(&wlr_output->events.destroy, &output->destroy);
