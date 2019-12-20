@@ -233,11 +233,11 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 		output->swapchain = glider_swapchain_create(
 			output->server->allocator, output->output->width,
 			output->output->height, &format_no_modifiers);
-	}
 
-	if (!output_test(output)) {
-		wlr_log(WLR_ERROR, "Failed to enable output");
-		return;
+		if (!output_test(output)) {
+			wlr_log(WLR_ERROR, "Failed to enable output");
+			return;
+		}
 	}
 
 	liftoff_output_set_composition_layer(output->liftoff_output,
