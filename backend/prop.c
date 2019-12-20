@@ -3,27 +3,30 @@
 #include <wlr/util/log.h>
 #include "backend/backend.h"
 
-const char *glider_drm_connector_props[GLIDER_DRM_CONNECTOR_PROP_COUNT] = {
-	[GLIDER_DRM_CONNECTOR_CRTC_ID] = "CRTC_ID",
+const struct glider_drm_prop_spec
+		glider_drm_connector_props[GLIDER_DRM_CONNECTOR_PROP_COUNT] = {
+	[GLIDER_DRM_CONNECTOR_CRTC_ID] = { "CRTC_ID", true },
 };
 
-const char *glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT] = {
-	[GLIDER_DRM_CRTC_MODE_ID] = "MODE_ID",
+const struct glider_drm_prop_spec
+		glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT] = {
+	[GLIDER_DRM_CRTC_MODE_ID] = { "MODE_ID", true },
 };
 
-const char *glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT] = {
-	[GLIDER_DRM_PLANE_TYPE] = "type",
-	[GLIDER_DRM_PLANE_IN_FORMATS] = "IN_FORMATS",
+const struct glider_drm_prop_spec
+		glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT] = {
+	[GLIDER_DRM_PLANE_TYPE] = { "type", true },
+	[GLIDER_DRM_PLANE_IN_FORMATS] = { "IN_FORMATS", false },
 };
 
 int prop_cmp(const void *_a, const void *_b) {
-	const char *a = _a, **b = (const char **)_b;
-	return strcmp(a, *b);
+	const struct glider_drm_prop_spec *a = _a, *b = _b;
+	return strcmp(a->name, b->name);
 }
 
-bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
-		size_t props_len, struct glider_drm_device *device,
-		uint32_t obj_id, uint32_t obj_type) {
+bool init_drm_props(struct glider_drm_prop *props,
+		const struct glider_drm_prop_spec *prop_specs, size_t props_len,
+		struct glider_drm_device *device, uint32_t obj_id, uint32_t obj_type) {
 	drmModeObjectProperties *obj_props =
 		drmModeObjectGetProperties(device->fd, obj_id, obj_type);
 	if (obj_props == NULL) {
@@ -42,10 +45,11 @@ bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 			return false;
 		}
 
-		const char **name = lfind(drm_prop->name, prop_names, &props_len,
-			sizeof(prop_names[0]), prop_cmp);
-		if (name != NULL) {
-			struct glider_drm_prop *prop = &props[name - prop_names];
+		struct glider_drm_prop_spec ref_spec = { .name = drm_prop->name };
+		const struct glider_drm_prop_spec *spec = lfind(&ref_spec,
+			prop_specs, &props_len, sizeof(prop_specs[0]), prop_cmp);
+		if (spec != NULL) {
+			struct glider_drm_prop *prop = &props[spec - prop_specs];
 			prop->id = id;
 			prop->current = prop->pending = prop->initial = value;
 		}
@@ -56,9 +60,10 @@ bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
 	drmModeFreeObjectProperties(obj_props);
 
 	for (size_t i = 0; i < props_len; i++) {
-		if (props[i].id == 0) {
-			wlr_log(WLR_ERROR, "Object %"PRIu32" is missing property %s",
-				obj_id, prop_names[i]);
+		if (prop_specs[i].required && props[i].id == 0) {
+			wlr_log(WLR_ERROR,
+				"Object %"PRIu32" is missing required property %s",
+				obj_id, prop_specs[i].name);
 			return false;
 		}
 	}

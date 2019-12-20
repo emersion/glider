@@ -28,9 +28,17 @@ enum glider_drm_plane_prop {
 	GLIDER_DRM_PLANE_PROP_COUNT, // keep last
 };
 
-extern const char *glider_drm_connector_props[GLIDER_DRM_CONNECTOR_PROP_COUNT];
-extern const char *glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT];
-extern const char *glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT];
+struct glider_drm_prop_spec {
+	const char *name;
+	bool required;
+};
+
+extern const struct glider_drm_prop_spec
+	glider_drm_connector_props[GLIDER_DRM_CONNECTOR_PROP_COUNT];
+extern const struct glider_drm_prop_spec
+	glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT];
+extern const struct glider_drm_prop_spec
+	glider_drm_plane_props[GLIDER_DRM_PLANE_PROP_COUNT];
 
 struct glider_drm_prop {
 	uint32_t id;
@@ -170,9 +178,9 @@ void finish_drm_plane(struct glider_drm_plane *plane);
 
 void unlock_drm_buffer(struct glider_drm_buffer *buf);
 
-bool init_drm_props(struct glider_drm_prop *props, const char **prop_names,
-	size_t props_len, struct glider_drm_device *device,
-	uint32_t obj_id, uint32_t obj_type);
+bool init_drm_props(struct glider_drm_prop *props,
+	const struct glider_drm_prop_spec *prop_specs, size_t props_len,
+	struct glider_drm_device *device, uint32_t obj_id, uint32_t obj_type);
 bool apply_drm_props(struct glider_drm_prop *props, size_t props_len,
 	uint32_t obj_id, drmModeAtomicReq *req);
 void move_drm_prop_values(struct glider_drm_prop *props, size_t props_len,
