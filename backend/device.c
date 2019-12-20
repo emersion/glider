@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE 700
 #include <assert.h>
 #include <drm_fourcc.h>
+#include <gbm.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <wlr/util/log.h>
@@ -156,14 +157,18 @@ bool init_drm_device(struct glider_drm_device *device,
 	int ret = drmGetCap(device->fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
 	device->cap_addfb2_modifiers = ret == 0 && cap == 1;
 
-	device->liftoff_device = liftoff_device_create(device->fd);
-	if (device->liftoff_device == NULL) {
+	device->gbm = gbm_create_device(device->fd);
+	if (device->gbm == NULL) {
 		return false;
 	}
 
+	device->liftoff_device = liftoff_device_create(device->fd);
+	if (device->liftoff_device == NULL) {
+		goto error_gbm;
+	}
+
 	if (!get_drm_resources(device)) {
-		liftoff_device_destroy(device->liftoff_device);
-		return false;
+		goto error_liftoff;
 	}
 
 	struct wl_event_loop *event_loop =
@@ -180,6 +185,12 @@ bool init_drm_device(struct glider_drm_device *device,
 	wlr_session_signal_add(backend->session, fd, &device->invalidated);
 
 	return true;
+
+error_liftoff:
+	liftoff_device_destroy(device->liftoff_device);
+error_gbm:
+	gbm_device_destroy(device->gbm);
+	return false;
 }
 
 static void destroy_drm_buffer(struct glider_drm_buffer *drm_buffer);
@@ -209,6 +220,7 @@ void finish_drm_device(struct glider_drm_device *device) {
 	}
 	free(device->crtcs);
 	liftoff_device_destroy(device->liftoff_device);
+	gbm_device_destroy(device->gbm);
 	wlr_session_close_file(device->backend->session, device->fd);
 }
 
@@ -273,33 +285,80 @@ error:
 	return false;
 }
 
-static uint32_t import_dmabuf(struct glider_drm_device *device,
+static struct gbm_bo *import_dmabuf(struct glider_drm_device *device,
 		struct wlr_dmabuf_attributes *dmabuf) {
+	uint32_t usage = GBM_BO_USE_SCANOUT;
+
+	if (dmabuf->n_planes > GBM_MAX_PLANES) {
+		wlr_log(WLR_ERROR, "DMA-BUF contains too many planes (%d)",
+			dmabuf->n_planes);
+		return NULL;
+	}
+
+	struct gbm_bo *bo;
+	if (dmabuf->modifier != DRM_FORMAT_MOD_INVALID || dmabuf->n_planes > 1 ||
+			dmabuf->offset[0] > 0) {
+		struct gbm_import_fd_modifier_data import_mod = {
+			.width = dmabuf->width,
+			.height = dmabuf->height,
+			.format = dmabuf->format,
+			.modifier = dmabuf->modifier,
+			.num_fds = dmabuf->n_planes,
+		};
+		memcpy(import_mod.fds, dmabuf->fd,
+			sizeof(dmabuf->fd[0]) * dmabuf->n_planes);
+		memcpy(import_mod.strides, dmabuf->stride,
+			sizeof(dmabuf->stride[0]) * dmabuf->n_planes);
+		memcpy(import_mod.offsets, dmabuf->offset,
+			sizeof(dmabuf->offset[0]) * dmabuf->n_planes);
+		bo = gbm_bo_import(device->gbm, GBM_BO_IMPORT_FD_MODIFIER, &import_mod,
+			usage);
+	} else {
+		struct gbm_import_fd_data import = {
+			.width = dmabuf->width,
+			.height = dmabuf->height,
+			.stride = dmabuf->stride[0],
+			.format = dmabuf->format,
+			.fd = dmabuf->fd[0],
+		};
+		bo = gbm_bo_import(device->gbm, GBM_BO_IMPORT_FD, &import, usage);
+	}
+	if (bo == NULL) {
+		wlr_log(WLR_ERROR, "gbm_bo_import failed");
+	}
+	return bo;
+}
+
+static uint32_t add_gbm_bo(struct glider_drm_device *device,
+		struct gbm_bo *bo) {
+	uint32_t width = gbm_bo_get_width(bo);
+	uint32_t height = gbm_bo_get_height(bo);
+	uint32_t format = gbm_bo_get_format(bo);
+	uint64_t modifier = gbm_bo_get_modifier(bo);
+
 	uint32_t handles[4] = {0};
 	uint64_t modifiers[4] = {0};
-	for (int i = 0; i < dmabuf->n_planes; i++) {
-		if (drmPrimeFDToHandle(device->fd, dmabuf->fd[i], &handles[i]) != 0) {
-			wlr_log_errno(WLR_ERROR, "drmPrimeFDToHandle failed");
-			return 0;
-		}
+	uint32_t strides[4] = {0};
+	uint32_t offsets[4] = {0};
+	for (int i = 0; i < gbm_bo_get_plane_count(bo); i++) {
+		handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
 		// KMS requires all BO planes to have the same modifier
-		modifiers[i] = dmabuf->modifier;
+		modifiers[i] = modifier;
+		strides[i] = gbm_bo_get_stride_for_plane(bo, i);
+		offsets[i] = gbm_bo_get_offset(bo, i);
 	}
 
 	uint32_t fb_id = 0;
-	if (device->cap_addfb2_modifiers &&
-			dmabuf->modifier != DRM_FORMAT_MOD_INVALID) {
-		if (drmModeAddFB2WithModifiers(device->fd, dmabuf->width,
-				dmabuf->height, dmabuf->format, handles,
-				dmabuf->stride, dmabuf->offset, modifiers, &fb_id,
+	if (device->cap_addfb2_modifiers && modifier != DRM_FORMAT_MOD_INVALID) {
+		if (drmModeAddFB2WithModifiers(device->fd, width, height, format,
+				handles, strides, offsets, modifiers, &fb_id,
 				DRM_MODE_FB_MODIFIERS) != 0) {
 			wlr_log_errno(WLR_ERROR, "drmModeAddFB2WithModifiers failed");
 			return 0;
 		}
 	} else {
-		if (drmModeAddFB2(device->fd, dmabuf->width, dmabuf->height,
-				dmabuf->format, handles, dmabuf->stride, dmabuf->offset,
-				&fb_id, 0) != 0) {
+		if (drmModeAddFB2(device->fd, width, height, format, handles, strides,
+				offsets, &fb_id, 0) != 0) {
 			wlr_log_errno(WLR_ERROR, "drmModeAddFB2 failed");
 			return 0;
 		}
@@ -333,14 +392,20 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 
 	struct wlr_dmabuf_attributes dmabuf;
 	if (!glider_buffer_get_dmabuf(buffer, &dmabuf)) {
-		free(drm_buffer);
-		return 0;
+		goto error_drm_buffer;
 	}
 
-	drm_buffer->id = import_dmabuf(device, &dmabuf);
+	// In theory we could bypass GBM and directly add the FB via some
+	// drmPrimeFDToHandle calls, however this leads to various issues regarding
+	// GEM handles and usage
+	drm_buffer->gbm = import_dmabuf(device, &dmabuf);
+	if (drm_buffer->gbm == NULL) {
+		goto error_drm_buffer;
+	}
+
+	drm_buffer->id = add_gbm_bo(device, drm_buffer->gbm);
 	if (drm_buffer->id == 0) {
-		free(drm_buffer);
-		return NULL;
+		goto error_gbm;
 	}
 
 	drm_buffer->destroy.notify = handle_buffer_destroy;
@@ -349,12 +414,19 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 	wl_list_insert(&device->buffers, &drm_buffer->link);
 
 	return drm_buffer;
+
+error_gbm:
+	gbm_bo_destroy(drm_buffer->gbm);
+error_drm_buffer:
+	free(drm_buffer);
+	return NULL;
 }
 
 static void destroy_drm_buffer(struct glider_drm_buffer *buffer) {
 	if (drmModeRmFB(buffer->device->fd, buffer->id) != 0) {
 		wlr_log_errno(WLR_ERROR, "drmModeRmFB failed");
 	}
+	gbm_bo_destroy(buffer->gbm);
 	if (buffer->state != GLIDER_DRM_BUFFER_UNLOCKED) {
 		unlock_drm_buffer(buffer);
 	}

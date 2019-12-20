@@ -57,6 +57,7 @@ struct glider_drm_buffer {
 	struct glider_buffer *buffer;
 	struct wl_list link;
 
+	struct gbm_bo *gbm;
 	uint32_t id;
 
 	enum glider_drm_buffer_state state;
@@ -113,6 +114,8 @@ struct glider_drm_device {
 	struct wl_event_source *event_source;
 
 	bool cap_addfb2_modifiers;
+
+	struct gbm_device *gbm;
 
 	struct wl_list buffers;
 	struct wl_list connectors;
