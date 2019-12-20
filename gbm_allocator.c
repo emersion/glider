@@ -12,7 +12,7 @@ static struct glider_gbm_buffer *get_gbm_buffer_from_buffer(
 	return (struct glider_gbm_buffer *)buffer;
 }
 
-struct glider_buffer *glider_gbm_buffer_create(struct gbm_device *gbm_device,
+struct glider_gbm_buffer *glider_gbm_buffer_create(struct gbm_device *gbm_device,
 		int width, int height, const struct wlr_drm_format *format) {
 	struct gbm_bo *bo = NULL;
 	if (format->len > 0) {
@@ -41,7 +41,7 @@ struct glider_buffer *glider_gbm_buffer_create(struct gbm_device *gbm_device,
 		"modifier 0x%"PRIX64")", buffer->base.width, buffer->base.height,
 		buffer->base.format, buffer->base.modifier);
 
-	return &buffer->base;
+	return buffer;
 }
 
 static void buffer_destroy(struct glider_buffer *glider_buffer) {
@@ -132,7 +132,12 @@ static struct glider_buffer *allocator_create_buffer(
 		struct glider_allocator *glider_alloc, int width, int height,
 		const struct wlr_drm_format *format) {
 	struct glider_gbm_allocator *alloc = get_gbm_alloc_from_alloc(glider_alloc);
-	return glider_gbm_buffer_create(alloc->gbm_device, width, height, format);
+	struct glider_gbm_buffer *buffer =
+		glider_gbm_buffer_create(alloc->gbm_device, width, height, format);
+	if (buffer == NULL) {
+		return NULL;
+	}
+	return &buffer->base;
 }
 
 static const struct glider_allocator_interface allocator_impl = {
