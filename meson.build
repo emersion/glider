@@ -56,6 +56,7 @@ executable(
 		'backend/device.c',
 		'backend/plane.c',
 		'backend/prop.c',
+		'drm_dumb_allocator.c',
 		'gbm_allocator.c',
 		'input.c',
 		'main.c',
