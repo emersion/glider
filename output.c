@@ -6,7 +6,7 @@
 #include <wlr/util/log.h>
 #include "allocator.h"
 #include "backend/backend.h"
-#include "renderer.h"
+#include "gl_renderer.h"
 #include "server.h"
 #include "swapchain.h"
 #include "surface.h"
@@ -15,13 +15,13 @@ static bool output_render_bg(struct glider_output *output,
 		struct glider_buffer *buf) {
 	struct glider_server *server = output->server;
 
-	if (!glider_renderer_begin(server->renderer, buf)) {
+	if (!glider_gl_renderer_begin(server->renderer, buf)) {
 		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
 		return false;
 	}
 	wlr_renderer_clear(server->renderer->renderer,
 		(float[4]){ 1.0, 0.0, 0.0, 1.0 });
-	glider_renderer_end(server->renderer);
+	glider_gl_renderer_end(server->renderer);
 	return true;
 }
 
@@ -48,7 +48,7 @@ static bool output_render(struct glider_output *output,
 
 	wlr_log(WLR_DEBUG, "Rendering output");
 
-	if (!glider_renderer_begin(server->renderer, buf)) {
+	if (!glider_gl_renderer_begin(server->renderer, buf)) {
 		wlr_log(WLR_ERROR, "Failed to start rendering on buffer");
 		return false;
 	}
@@ -74,7 +74,7 @@ static bool output_render(struct glider_output *output,
 			output->output->transform_matrix, 0, 0, 1.0);
 	}
 
-	glider_renderer_end(server->renderer);
+	glider_gl_renderer_end(server->renderer);
 	return true;
 }
 

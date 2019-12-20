@@ -61,7 +61,7 @@ executable(
 		'input.c',
 		'main.c',
 		'output.c',
-		'renderer.c',
+		'gl_renderer.c',
 		'swapchain.c',
 		'wlr_buffer.c',
 		'xdg_shell.c',

@@ -4,10 +4,10 @@
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/util/log.h>
 #include "allocator.h"
-#include "renderer.h"
+#include "gl_renderer.h"
 
-struct glider_renderer *glider_gbm_renderer_create(struct gbm_device *device) {
-	struct glider_renderer *renderer = calloc(1, sizeof(*renderer));
+struct glider_gl_renderer *glider_gl_gbm_renderer_create(struct gbm_device *device) {
+	struct glider_gl_renderer *renderer = calloc(1, sizeof(*renderer));
 	if (renderer == NULL) {
 		return NULL;
 	}
@@ -35,7 +35,7 @@ struct glider_renderer *glider_gbm_renderer_create(struct gbm_device *device) {
 	return renderer;
 }
 
-static void renderer_buffer_destroy(struct glider_renderer_buffer *buf) {
+static void renderer_buffer_destroy(struct glider_gl_renderer_buffer *buf) {
 	wl_list_remove(&buf->link);
 	wl_list_remove(&buf->destroy.link);
 	glDeleteFramebuffers(1, &buf->gl_fbo);
@@ -44,9 +44,9 @@ static void renderer_buffer_destroy(struct glider_renderer_buffer *buf) {
 	free(buf);
 }
 
-void glider_renderer_destroy(struct glider_renderer *renderer) {
+void glider_gl_renderer_destroy(struct glider_gl_renderer *renderer) {
 	wlr_egl_make_current(&renderer->egl, EGL_NO_SURFACE, NULL);
-	struct glider_renderer_buffer *buf, *buf_tmp;
+	struct glider_gl_renderer_buffer *buf, *buf_tmp;
 	wl_list_for_each_safe(buf, buf_tmp, &renderer->buffers, link) {
 		renderer_buffer_destroy(buf);
 	}
@@ -55,9 +55,9 @@ void glider_renderer_destroy(struct glider_renderer *renderer) {
 	free(renderer);
 }
 
-static struct glider_renderer_buffer *get_buffer(struct glider_renderer *renderer,
-		struct glider_buffer *buffer) {
-	struct glider_renderer_buffer *renderer_buffer;
+static struct glider_gl_renderer_buffer *get_buffer(
+		struct glider_gl_renderer *renderer, struct glider_buffer *buffer) {
+	struct glider_gl_renderer_buffer *renderer_buffer;
 	wl_list_for_each(renderer_buffer, &renderer->buffers, link) {
 		if (renderer_buffer->buffer == buffer) {
 			return renderer_buffer;
@@ -67,14 +67,14 @@ static struct glider_renderer_buffer *get_buffer(struct glider_renderer *rendere
 }
 
 static void handle_buffer_destroy(struct wl_listener *listener, void *data) {
-	struct glider_renderer_buffer *buf =
+	struct glider_gl_renderer_buffer *buf =
 		wl_container_of(listener, buf, destroy);
 	renderer_buffer_destroy(buf);
 }
 
-static struct glider_renderer_buffer *renderer_buffer_create(
-		struct glider_renderer *renderer, struct glider_buffer *buffer) {
-	struct glider_renderer_buffer *renderer_buffer =
+static struct glider_gl_renderer_buffer *renderer_buffer_create(
+		struct glider_gl_renderer *renderer, struct glider_buffer *buffer) {
+	struct glider_gl_renderer_buffer *renderer_buffer =
 		calloc(1, sizeof(*renderer_buffer));
 	if (renderer_buffer == NULL) {
 		return NULL;
@@ -136,11 +136,11 @@ error:
 	return NULL;
 }
 
-bool glider_renderer_begin(struct glider_renderer *renderer,
+bool glider_gl_renderer_begin(struct glider_gl_renderer *renderer,
 		struct glider_buffer *buffer) {
 	assert(renderer->current_buffer == NULL);
 
-	struct glider_renderer_buffer *renderer_buffer =
+	struct glider_gl_renderer_buffer *renderer_buffer =
 		get_buffer(renderer, buffer);
 	if (renderer_buffer == NULL) {
 		renderer_buffer = renderer_buffer_create(renderer, buffer);
@@ -161,7 +161,7 @@ bool glider_renderer_begin(struct glider_renderer *renderer,
 	return true;
 }
 
-void glider_renderer_end(struct glider_renderer *renderer) {
+void glider_gl_renderer_end(struct glider_gl_renderer *renderer) {
 	assert(renderer->current_buffer != NULL);
 	glFlush();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);

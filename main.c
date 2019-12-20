@@ -6,7 +6,7 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include "gbm_allocator.h"
 #include "backend/backend.h"
-#include "renderer.h"
+#include "gl_renderer.h"
 #include "server.h"
 
 int main(int argc, char *argv[]) {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 	server.allocator = &gbm_allocator->base;
 
 	server.renderer =
-		glider_gbm_renderer_create(gbm_allocator->gbm_device);
+		glider_gl_gbm_renderer_create(gbm_allocator->gbm_device);
 	if (server.renderer == NULL) {
 		return 1;
 	}
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 
 	wl_display_run(server.display);
 
-	glider_renderer_destroy(server.renderer);
+	glider_gl_renderer_destroy(server.renderer);
 	wl_display_destroy_clients(server.display);
 	wl_display_destroy(server.display);
 	glider_allocator_destroy(server.allocator);

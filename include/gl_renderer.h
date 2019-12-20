@@ -9,9 +9,9 @@
 #include <stdbool.h>
 #include <wlr/render/egl.h>
 
-struct glider_renderer_buffer {
+struct glider_gl_renderer_buffer {
 	struct glider_buffer *buffer;
-	struct glider_renderer *renderer;
+	struct glider_gl_renderer *renderer;
 	struct wl_list link;
 
 	EGLImageKHR egl_image;
@@ -21,18 +21,18 @@ struct glider_renderer_buffer {
 	struct wl_listener destroy;
 };
 
-struct glider_renderer {
+struct glider_gl_renderer {
 	struct wlr_renderer *renderer;
 	struct wlr_egl egl;
 
 	struct wl_list buffers;
-	struct glider_renderer_buffer *current_buffer;
+	struct glider_gl_renderer_buffer *current_buffer;
 };
 
-struct glider_renderer *glider_gbm_renderer_create(struct gbm_device *device);
-void glider_renderer_destroy(struct glider_renderer *renderer);
-bool glider_renderer_begin(struct glider_renderer *renderer,
+struct glider_gl_renderer *glider_gl_gbm_renderer_create(struct gbm_device *device);
+void glider_gl_renderer_destroy(struct glider_gl_renderer *renderer);
+bool glider_gl_renderer_begin(struct glider_gl_renderer *renderer,
 	struct glider_buffer *buffer);
-void glider_renderer_end(struct glider_renderer *renderer);
+void glider_gl_renderer_end(struct glider_gl_renderer *renderer);
 
 #endif
