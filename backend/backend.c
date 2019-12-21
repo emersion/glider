@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <wlr/util/log.h>
+#include <xf86drm.h>
 #include "backend/backend.h"
 
 static const struct wlr_backend_impl backend_impl;
@@ -105,8 +107,20 @@ error_device:
 	return NULL;
 }
 
-int glider_drm_backend_get_primary_fd(struct wlr_backend *wlr_backend) {
+int glider_drm_backend_get_render_fd(struct wlr_backend *wlr_backend) {
 	struct glider_drm_backend *backend =
 		get_drm_backend_from_backend(wlr_backend);
-	return backend->devices[0].fd;
+	struct glider_drm_device *primary_device = &backend->devices[0];
+	char *render_path = drmGetRenderDeviceNameFromFd(primary_device->fd);
+	if (render_path == NULL) {
+		wlr_log_errno(WLR_ERROR, "drmGetRenderDeviceNameFromFd");
+		return -1;
+	}
+	int render_fd = open(render_path, O_RDWR | O_CLOEXEC);
+	if (render_fd < 0) {
+		wlr_log_errno(WLR_ERROR, "open(\"%s\") failed", render_path);
+		return -1;
+	}
+	free(render_path);
+	return render_fd;
 }

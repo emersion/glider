@@ -112,6 +112,8 @@ struct glider_gbm_allocator *glider_gbm_allocator_create(int fd) {
 	}
 	glider_allocator_init(&alloc->base, &allocator_impl);
 
+	alloc->fd = fd;
+
 	alloc->gbm_device = gbm_create_device(fd);
 	if (alloc->gbm_device == NULL) {
 		wlr_log(WLR_ERROR, "gbm_create_device failed");
@@ -125,6 +127,7 @@ struct glider_gbm_allocator *glider_gbm_allocator_create(int fd) {
 static void allocator_destroy(struct glider_allocator *glider_alloc) {
 	struct glider_gbm_allocator *alloc = get_gbm_alloc_from_alloc(glider_alloc);
 	gbm_device_destroy(alloc->gbm_device);
+	close(alloc->fd);
 	free(alloc);
 }
 

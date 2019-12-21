@@ -146,7 +146,7 @@ struct glider_drm_backend {
 
 struct wlr_backend *glider_drm_backend_create(struct wl_display *display,
 	struct wlr_session *session);
-int glider_drm_backend_get_primary_fd(struct wlr_backend *backend);
+int glider_drm_backend_get_render_fd(struct wlr_backend *backend);
 
 const struct wlr_drm_format_set *glider_drm_connector_get_primary_formats(
 	struct wlr_output *output);

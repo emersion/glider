@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 	wlr_multi_backend_add(server.backend, libinput_backend);
 
 	// TODO: multi-GPU
-	int fd = glider_drm_backend_get_primary_fd(drm_backend);
+	int fd = glider_drm_backend_get_render_fd(drm_backend);
 	struct glider_gbm_allocator *gbm_allocator =
 		glider_gbm_allocator_create(fd);
 	if (gbm_allocator == NULL) {
