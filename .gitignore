@@ -1,6 +1,7 @@
 /build
 /build-*
 
-/subprojects
+/subprojects/*
+!/subprojects/*.wrap
 
 *.log
