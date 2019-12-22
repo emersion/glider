@@ -12,6 +12,7 @@ project(
 )
 
 cc = meson.get_compiler('c')
+
 add_project_arguments(cc.get_supported_arguments([
 	'-D_POSIX_C_SOURCE=200809L',
 	'-DWLR_USE_UNSTABLE',
@@ -40,6 +41,10 @@ if wlroots_proj.found()
 	wlroots = wlroots_proj.get_variable('wlroots')
 else
 	wlroots = dependency('wlroots', version: wlroots_version)
+endif
+
+if cc.has_function('gbm_bo_create_with_modifiers2', prefix: '#include <gbm.h>', dependencies: gbm)
+	add_project_arguments('-DHAVE_GBM_BO_CREATE_WITH_MODIFIERS2', language: 'c')
 endif
 
 glider_inc = include_directories('include')

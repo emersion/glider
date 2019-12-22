@@ -14,14 +14,21 @@ static struct glider_gbm_buffer *get_gbm_buffer_from_buffer(
 
 struct glider_gbm_buffer *glider_gbm_buffer_create(struct gbm_device *gbm_device,
 		int width, int height, const struct wlr_drm_format *format) {
+	uint32_t usage = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
+
 	struct gbm_bo *bo = NULL;
 	if (format->len > 0) {
-		bo = gbm_bo_create_with_modifiers(gbm_device, width, height,
-			format->format, format->modifiers, format->len);
+#ifdef HAVE_GBM_BO_CREATE_WITH_MODIFIERS2
+		bo = gbm_bo_create_with_modifiers2(gbm_device, width, height,
+			format->format, format->modifiers, format->len, usage);
+#endif
+		if (bo == NULL) {
+			bo = gbm_bo_create_with_modifiers(gbm_device, width, height,
+				format->format, format->modifiers, format->len);
+		}
 	}
 	if (bo == NULL) {
-		bo = gbm_bo_create(gbm_device, width, height,
-			format->format, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+		bo = gbm_bo_create(gbm_device, width, height, format->format, usage);
 	}
 	if (bo == NULL) {
 		wlr_log(WLR_ERROR, "gbm_bo_create failed");
