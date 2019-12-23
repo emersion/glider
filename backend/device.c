@@ -89,12 +89,12 @@ static void handle_invalidated(struct wl_listener *listener, void *data) {
 	refresh_drm_device(device);
 }
 
-static struct glider_drm_connector *connector_from_crtc_id(
-		struct glider_drm_device *device, uint32_t crtc_id) {
-	struct glider_drm_connector *conn;
-	wl_list_for_each(conn, &device->connectors, link) {
-		if (conn->crtc != NULL && conn->crtc->id == crtc_id) {
-			return conn;
+static struct glider_drm_crtc *crtc_from_id(struct glider_drm_device *device,
+		uint32_t crtc_id) {
+	for (size_t i = 0; i < device->crtcs_len; i++) {
+		struct glider_drm_crtc *crtc = &device->crtcs[i];
+		if (crtc->id == crtc_id) {
+			return crtc;
 		}
 	}
 	return NULL;
@@ -104,9 +104,9 @@ static void handle_page_flip(int fd, unsigned seq,
 		unsigned tv_sec, unsigned tv_usec, unsigned crtc_id, void *data) {
 	struct glider_drm_device *device = data;
 
-	struct glider_drm_connector *conn = connector_from_crtc_id(device, crtc_id);
-	if (conn == NULL) {
-		wlr_log(WLR_DEBUG, "Received page-flip for disabled CRTC %"PRIu32,
+	struct glider_drm_crtc *crtc = crtc_from_id(device, crtc_id);
+	if (crtc == NULL) {
+		wlr_log(WLR_ERROR, "Received page-flip for unknown CRTC %"PRIu32,
 			crtc_id);
 		return;
 	}
@@ -116,7 +116,7 @@ static void handle_page_flip(int fd, unsigned seq,
 		.tv_nsec = tv_usec * 1000,
 	};
 
-	handle_drm_connector_page_flip(conn, seq, &t);
+	handle_drm_crtc_page_flip(crtc, seq, &t);
 }
 
 static int handle_drm_event(int fd, uint32_t mask, void *data) {
@@ -389,8 +389,8 @@ static void handle_buffer_destroy(struct wl_listener *listener, void *data) {
 	destroy_drm_buffer(drm_buffer);
 }
 
-struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
-		struct glider_buffer *buffer) {
+struct glider_drm_buffer *get_or_create_drm_buffer(
+		struct glider_drm_device *device, struct glider_buffer *buffer) {
 	struct glider_drm_buffer *drm_buffer;
 	wl_list_for_each(drm_buffer, &device->buffers, link) {
 		if (drm_buffer->buffer == buffer) {
@@ -448,8 +448,15 @@ static void destroy_drm_buffer(struct glider_drm_buffer *buffer) {
 		wlr_log_errno(WLR_ERROR, "drmModeRmFB failed");
 	}
 	gbm_bo_destroy(buffer->gbm);
-	if (buffer->state != GLIDER_DRM_BUFFER_UNLOCKED) {
-		unlock_drm_buffer(buffer);
+	for (size_t i = 0; i < buffer->device->crtcs_len; i++) {
+		struct glider_drm_crtc *crtc = &buffer->device->crtcs[i];
+		for (size_t j = 0; j < crtc->attachments_cap; j++) {
+			struct glider_drm_attachment *att = &crtc->attachments[j];
+			if (att->state != GLIDER_DRM_BUFFER_UNLOCKED &&
+					att->buffer == buffer) {
+				unlock_drm_attachment(att);
+			}
+		}
 	}
 	wl_list_remove(&buffer->destroy.link);
 	wl_list_remove(&buffer->link);

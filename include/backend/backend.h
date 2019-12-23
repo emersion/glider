@@ -60,12 +60,16 @@ struct glider_drm_buffer {
 	struct gbm_bo *gbm;
 	uint32_t id;
 
-	enum glider_drm_buffer_state state;
-	// TODO: allow a single buffer to be displayed on multiple CRTCs
-	struct glider_drm_connector *connector;
-	struct liftoff_layer *layer;
-
 	struct wl_listener destroy;
+};
+
+/* Each time a buffer is attached to a CRTC, an attachment is created. We need
+ * to track where the buffer is attached to properly release it when
+ * page-flipping or attaching another buffer. */
+struct glider_drm_attachment {
+	enum glider_drm_buffer_state state;
+	struct glider_drm_buffer *buffer;
+	struct liftoff_layer *layer;
 };
 
 struct glider_drm_plane {
@@ -83,6 +87,9 @@ struct glider_drm_crtc {
 	struct glider_drm_prop props[GLIDER_DRM_CRTC_PROP_COUNT];
 
 	struct glider_drm_plane *primary_plane;
+
+	struct glider_drm_attachment *attachments;
+	size_t attachments_cap;
 
 	struct liftoff_output *liftoff_output;
 };
@@ -162,8 +169,6 @@ bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);
 void finish_drm_device(struct glider_drm_device *device);
 bool refresh_drm_device(struct glider_drm_device *device);
-struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
-	struct glider_buffer *buffer);
 
 struct glider_drm_connector *create_drm_connector(
 	struct glider_drm_device *device, uint32_t id);
@@ -175,12 +180,16 @@ void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 bool init_drm_crtc(struct glider_drm_crtc *crtc,
 	struct glider_drm_device *device, uint32_t id);
 void finish_drm_crtc(struct glider_drm_crtc *crtc);
+void handle_drm_crtc_page_flip(struct glider_drm_crtc *crtc,
+	unsigned seq, struct timespec *t);
 
 bool init_drm_plane(struct glider_drm_plane *plane,
 	struct glider_drm_device *device, uint32_t id);
 void finish_drm_plane(struct glider_drm_plane *plane);
 
-void unlock_drm_buffer(struct glider_drm_buffer *buf);
+struct glider_drm_buffer *get_or_create_drm_buffer(
+	struct glider_drm_device *device, struct glider_buffer *buffer);
+void unlock_drm_attachment(struct glider_drm_attachment *att);
 
 bool init_drm_props(struct glider_drm_prop *props,
 	const struct glider_drm_prop_spec *prop_specs, size_t props_len,

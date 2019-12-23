@@ -57,14 +57,14 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		move_drm_prop_values(conn->crtc->props,
 			GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
 	}
-	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY) && ret == 0) {
+	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY) && ret == 0 &&
+			conn->crtc != NULL) {
 		// On a successful page-flip, mark the buffers we've just submitted
-		// to KMS.
-		struct glider_drm_buffer *buf;
-		wl_list_for_each(buf, &conn->device->buffers, link) {
-			if (buf->connector == conn &&
-					buf->state == GLIDER_DRM_BUFFER_PENDING) {
-				buf->state = GLIDER_DRM_BUFFER_QUEUED;
+		// to KMS
+		for (size_t i = 0; i < conn->crtc->attachments_cap; i++) {
+			struct glider_drm_attachment *att = &conn->crtc->attachments[i];
+			if (att->state == GLIDER_DRM_BUFFER_PENDING) {
+				att->state = GLIDER_DRM_BUFFER_QUEUED;
 			}
 		}
 	}
@@ -108,6 +108,20 @@ static struct glider_drm_crtc *connector_pick_crtc(
 
 static void connector_set_crtc(struct glider_drm_connector *conn,
 		struct glider_drm_crtc *crtc) {
+	if (conn->crtc == crtc) {
+		return;
+	}
+
+	if (conn->crtc != NULL) {
+		// TODO: don't do this if another connector is using the CRTC
+		for (size_t i = 0; i < conn->crtc->attachments_cap; i++) {
+			struct glider_drm_attachment *att = &conn->crtc->attachments[i];
+			if (att->state == GLIDER_DRM_BUFFER_PENDING) {
+				unlock_drm_attachment(att);
+			}
+		}
+	}
+
 	conn->crtc = crtc;
 	conn->props[GLIDER_DRM_CONNECTOR_CRTC_ID].pending = crtc ? crtc->id : 0;
 }
@@ -165,12 +179,7 @@ static bool output_commit(struct wlr_output *output) {
 static void output_destroy(struct wlr_output *output) {
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
 
-	struct glider_drm_buffer *buf;
-	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->state != GLIDER_DRM_BUFFER_UNLOCKED && buf->connector == conn) {
-			unlock_drm_buffer(buf);
-		}
-	}
+	connector_set_crtc(conn, NULL);
 
 	for (size_t i = 0; i < conn->modes_len; i++) {
 		wl_list_remove(&conn->modes[i].wlr_mode.link);
@@ -349,40 +358,82 @@ struct liftoff_output *glider_drm_connector_get_liftoff_output(
 	return conn->crtc->liftoff_output;
 }
 
+static bool attach_drm_buffer(struct glider_drm_buffer *buf,
+		struct glider_drm_crtc *crtc, struct liftoff_layer *layer) {
+	struct glider_drm_attachment *free_att = NULL;
+	for (size_t i = 0; i < crtc->attachments_cap; i++) {
+		struct glider_drm_attachment *att = &crtc->attachments[i];
+		if (att->state == GLIDER_DRM_BUFFER_PENDING && att->buffer == buf &&
+				att->layer == layer) {
+			return true; // already locked
+		}
+		if (free_att == NULL && att->state == GLIDER_DRM_BUFFER_UNLOCKED) {
+			free_att = att;
+		}
+	}
+
+	if (free_att == NULL) {
+		size_t new_cap = crtc->attachments_cap * 2;
+		if (new_cap == 0) {
+			new_cap = 8;
+		}
+		struct glider_drm_attachment *atts = realloc(crtc->attachments,
+			new_cap * sizeof(struct glider_drm_attachment));
+		if (atts == NULL) {
+			wlr_log_errno(WLR_ERROR, "realloc failed");
+			return false;
+		}
+		free_att = &atts[crtc->attachments_cap];
+		crtc->attachments_cap = new_cap;
+		crtc->attachments = atts;
+	}
+
+	free_att->state = GLIDER_DRM_BUFFER_PENDING;
+	free_att->buffer = buf;
+	free_att->layer = layer;
+	glider_buffer_lock(buf->buffer);
+	return true;
+}
+
+void unlock_drm_attachment(struct glider_drm_attachment *att) {
+	assert(att->state != GLIDER_DRM_BUFFER_UNLOCKED);
+
+	glider_buffer_unlock(att->buffer->buffer);
+	att->state = GLIDER_DRM_BUFFER_UNLOCKED;
+	att->buffer = NULL;
+	att->layer = NULL;
+}
+
 bool glider_drm_connector_attach(struct wlr_output *output,
 		struct glider_buffer *buffer, struct liftoff_layer *layer) {
+	// TODO: accept a NULL buffer to reset the pending buffer (e.g. when the
+	// atomic test-only commit fails)
+
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
 	if (conn->crtc == NULL) {
 		return false;
 	}
 
 	struct glider_drm_buffer *drm_buffer =
-		attach_drm_buffer(conn->device, buffer);
+		get_or_create_drm_buffer(conn->device, buffer);
 	if (drm_buffer == NULL) {
 		return false;
 	}
-	if (drm_buffer->state != GLIDER_DRM_BUFFER_UNLOCKED) {
-		wlr_log(WLR_ERROR, "Cannot attach buffer: buffer is already locked");
-		return false;
-	}
-
-	glider_buffer_lock(drm_buffer->buffer);
 
 	// Unlock any pending buffer we're going to replace
-	struct glider_drm_buffer *buf;
-	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->connector == conn && buf->layer == layer &&
-				buf->state == GLIDER_DRM_BUFFER_PENDING) {
-			unlock_drm_buffer(buf);
+	for (size_t i = 0; i < conn->crtc->attachments_cap; i++) {
+		struct glider_drm_attachment *att = &conn->crtc->attachments[i];
+		if (att->state == GLIDER_DRM_BUFFER_PENDING &&
+				att->layer == layer) {
+			unlock_drm_attachment(att);
 		}
 	}
 
+	if (!attach_drm_buffer(drm_buffer, conn->crtc, layer)) {
+		return false;
+	}
+
 	liftoff_layer_set_property(layer, "FB_ID", drm_buffer->id);
-	// TODO: there's no guarantee the layer will be directly scanned out. If
-	// that's not the case, release the buffer on commit.
-	drm_buffer->state = GLIDER_DRM_BUFFER_PENDING;
-	drm_buffer->connector = conn;
-	drm_buffer->layer = layer;
 	return true;
 }
 
@@ -390,37 +441,8 @@ static int mhz_to_nsec(int mhz) {
 	return 1000000000000LL / mhz;
 }
 
-static bool has_queued_buffer(struct glider_drm_connector *conn,
-		struct liftoff_layer *layer) {
-	struct glider_drm_buffer *buf;
-	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->connector == conn && buf->layer == layer &&
-				buf->state == GLIDER_DRM_BUFFER_QUEUED) {
-			return true;
-		}
-	}
-	return false;
-}
-
 void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 		unsigned seq, struct timespec *t) {
-	// Release buffers that the new front buffers replaced
-	// TODO: doesn't handle liftoff_layer destroy
-	struct glider_drm_buffer *buf, *buf_tmp;
-	wl_list_for_each_safe(buf, buf_tmp, &conn->device->buffers, link) {
-		if (buf->connector == conn && buf->state == GLIDER_DRM_BUFFER_CURRENT &&
-				has_queued_buffer(conn, buf->layer)) {
-			unlock_drm_buffer(buf);
-		}
-	}
-
-	// Mark queued buffers as current
-	wl_list_for_each(buf, &conn->device->buffers, link) {
-		if (buf->connector == conn && buf->state == GLIDER_DRM_BUFFER_QUEUED) {
-			buf->state = GLIDER_DRM_BUFFER_CURRENT;
-		}
-	}
-
 	uint32_t present_flags = WLR_OUTPUT_PRESENT_VSYNC |
 		WLR_OUTPUT_PRESENT_HW_CLOCK | WLR_OUTPUT_PRESENT_HW_COMPLETION;
 	// TODO: WLR_OUTPUT_PRESENT_ZERO_COPY
@@ -436,12 +458,4 @@ void handle_drm_connector_page_flip(struct glider_drm_connector *conn,
 	wlr_output_send_present(&conn->output, &present_event);
 
 	wlr_output_send_frame(&conn->output);
-}
-
-void unlock_drm_buffer(struct glider_drm_buffer *buf) {
-	assert(buf->state != GLIDER_DRM_BUFFER_UNLOCKED);
-	buf->state = GLIDER_DRM_BUFFER_UNLOCKED;
-	buf->connector = NULL;
-	buf->layer = NULL;
-	glider_buffer_unlock(buf->buffer);
 }
