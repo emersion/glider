@@ -398,10 +398,10 @@ static bool attach_drm_buffer(struct glider_drm_buffer *buf,
 void unlock_drm_attachment(struct glider_drm_attachment *att) {
 	assert(att->state != GLIDER_DRM_BUFFER_UNLOCKED);
 
-	glider_buffer_unlock(att->buffer->buffer);
 	att->state = GLIDER_DRM_BUFFER_UNLOCKED;
 	att->buffer = NULL;
 	att->layer = NULL;
+	glider_buffer_unlock(att->buffer->buffer);
 }
 
 bool glider_drm_connector_attach(struct wlr_output *output,
