@@ -129,6 +129,17 @@ static int handle_drm_event(int fd, uint32_t mask, void *data) {
 	return 1;
 }
 
+// TODO: move to wlroots
+static void format_set_union(struct wlr_drm_format_set *dst,
+		const struct wlr_drm_format_set *src) {
+	for (size_t i = 0; i < src->len; i++) {
+		const struct wlr_drm_format *fmt = src->formats[i];
+		for (size_t j = 0; j < fmt->len; j++) {
+			wlr_drm_format_set_add(dst, fmt->format, fmt->modifiers[j]);
+		}
+	}
+}
+
 bool init_drm_device(struct glider_drm_device *device,
 		struct glider_drm_backend *backend, int fd) {
 	device->backend = backend;
@@ -169,6 +180,10 @@ bool init_drm_device(struct glider_drm_device *device,
 
 	if (!get_drm_resources(device)) {
 		goto error_liftoff;
+	}
+
+	for (size_t i = 0; i < device->planes_len; i++) {
+		format_set_union(&device->formats, &device->planes[i].formats);
 	}
 
 	struct wl_event_loop *event_loop =
@@ -220,6 +235,7 @@ void finish_drm_device(struct glider_drm_device *device) {
 	}
 	free(device->crtcs);
 	liftoff_device_destroy(device->liftoff_device);
+	wlr_drm_format_set_finish(&device->formats);
 	gbm_device_destroy(device->gbm);
 	wlr_session_close_file(device->backend->session, device->fd);
 }
@@ -380,6 +396,11 @@ struct glider_drm_buffer *attach_drm_buffer(struct glider_drm_device *device,
 		if (drm_buffer->buffer == buffer) {
 			return drm_buffer;
 		}
+	}
+
+	if (!wlr_drm_format_set_has(&device->formats,
+			buffer->format, buffer->modifier)) {
+		return NULL;
 	}
 
 	drm_buffer = calloc(1, sizeof(*drm_buffer));

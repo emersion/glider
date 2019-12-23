@@ -116,6 +116,7 @@ struct glider_drm_device {
 	bool cap_addfb2_modifiers;
 
 	struct gbm_device *gbm;
+	struct wlr_drm_format_set formats; // union of all planes formats
 
 	struct wl_list buffers;
 	struct wl_list connectors;
