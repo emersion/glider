@@ -134,6 +134,7 @@ static void format_set_union(struct wlr_drm_format_set *dst,
 		const struct wlr_drm_format_set *src) {
 	for (size_t i = 0; i < src->len; i++) {
 		const struct wlr_drm_format *fmt = src->formats[i];
+		wlr_drm_format_set_add(dst, fmt->format, DRM_FORMAT_MOD_INVALID);
 		for (size_t j = 0; j < fmt->len; j++) {
 			wlr_drm_format_set_add(dst, fmt->format, fmt->modifiers[j]);
 		}
@@ -400,6 +401,8 @@ struct glider_drm_buffer *get_or_create_drm_buffer(
 
 	if (!wlr_drm_format_set_has(&device->formats,
 			buffer->format, buffer->modifier)) {
+		wlr_log(WLR_DEBUG, "No plane can scan-out format 0x%"PRIX32", "
+			"modifier 0x%"PRIX64, buffer->format, buffer->modifier);
 		return NULL;
 	}
 
