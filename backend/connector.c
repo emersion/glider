@@ -101,7 +101,11 @@ static struct glider_drm_crtc *connector_pick_crtc(
 	if (possible_crtcs == 0) {
 		return NULL;
 	} else {
-		int crtc_index = ffs(possible_crtcs) - 1;
+		size_t crtc_index = ffs(possible_crtcs) - 1;
+		if (crtc_index >= device->crtcs_len) {
+			// Some drivers set possible_crtcs to UINT32_MAX
+			return NULL;
+		}
 		return &device->crtcs[crtc_index];
 	}
 }
