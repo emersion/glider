@@ -13,6 +13,25 @@ static struct glider_drm_connector *get_drm_connector_from_output(
 	return (struct glider_drm_connector *)wlr_output;
 }
 
+static bool connector_apply_props(struct glider_drm_connector *conn,
+		drmModeAtomicReq *req) {
+	if (!apply_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT,
+			conn->id, req)) {
+		return false;
+	}
+	if (conn->crtc != NULL) {
+		if (!apply_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT,
+				conn->crtc->id, req)) {
+			return false;
+		}
+		if (!liftoff_output_apply(conn->crtc->liftoff_output, req)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static bool connector_commit(struct glider_drm_connector *conn,
 		uint32_t flags) {
 	if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET) {
@@ -34,18 +53,9 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		return false;
 	}
 
-	if (!apply_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT,
-			conn->id, req)) {
-		goto error;
-	}
-	if (conn->crtc != NULL) {
-		if (!apply_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT,
-				conn->crtc->id, req)) {
-			goto error;
-		}
-		if (!liftoff_output_apply(conn->crtc->liftoff_output, req)) {
-			goto error;
-		}
+	if (!connector_apply_props(conn, req)) {
+		drmModeAtomicFree(req);
+		return false;
 	}
 
 	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, conn->device);
@@ -74,10 +84,6 @@ static bool connector_commit(struct glider_drm_connector *conn,
 	}
 
 	return ret == 0;
-
-error:
-	drmModeAtomicFree(req);
-	return false;
 }
 
 bool glider_drm_connector_commit(struct wlr_output *output) {
