@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <wlr/util/log.h>
 #include "backend/backend.h"
 
 bool init_drm_crtc(struct glider_drm_crtc *crtc,
@@ -68,4 +69,30 @@ void handle_drm_crtc_page_flip(struct glider_drm_crtc *crtc,
 			handle_drm_connector_page_flip(conn, seq, t);
 		}
 	}
+}
+
+bool set_drm_crtc_mode(struct glider_drm_crtc *crtc,
+		const struct glider_drm_mode *mode) {
+	uint32_t mode_blob = 0;
+	if (mode != NULL) {
+		if (drmModeCreatePropertyBlob(crtc->device->fd, &mode->drm_mode,
+				sizeof(drmModeModeInfo), &mode_blob) != 0) {
+			wlr_log_errno(WLR_ERROR, "drmModeCreatePropertyBlob failed");
+			return false;
+		}
+	}
+
+	crtc->props[GLIDER_DRM_CRTC_ACTIVE].pending = mode != NULL;
+
+	struct glider_drm_prop *mode_id = &crtc->props[GLIDER_DRM_CRTC_MODE_ID];
+	if (mode_id->pending != 0 && mode_id->pending != mode_id->initial) {
+		if (drmModeDestroyPropertyBlob(crtc->device->fd,
+				mode_id->pending) != 0) {
+			wlr_log_errno(WLR_ERROR, "drmModeDestroyPropertyBlob failed");
+			return false;
+		}
+	}
+	mode_id->pending = mode_blob;
+
+	return true;
 }

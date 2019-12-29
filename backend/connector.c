@@ -152,10 +152,7 @@ static bool output_set_mode(struct wlr_output *output,
 		return false;
 	}
 
-	uint32_t mode_blob;
-	if (drmModeCreatePropertyBlob(conn->device->fd, &mode->drm_mode,
-			sizeof(drmModeModeInfo), &mode_blob) != 0) {
-		wlr_log_errno(WLR_ERROR, "drmModeCreatePropertyBlob failed");
+	if (!set_drm_crtc_mode(crtc, mode)) {
 		return false;
 	}
 
@@ -163,16 +160,6 @@ static bool output_set_mode(struct wlr_output *output,
 	// TODO: change wlr_output semantics to only apply the mode on commit
 
 	connector_set_crtc(conn, crtc);
-
-	struct glider_drm_prop *mode_id = &crtc->props[GLIDER_DRM_CRTC_MODE_ID];
-	if (mode_id->pending != 0 && mode_id->pending != mode_id->initial) {
-		if (drmModeDestroyPropertyBlob(conn->device->fd,
-				mode_id->pending) != 0) {
-			wlr_log_errno(WLR_ERROR, "drmModeDestroyPropertyBlob failed");
-			return false;
-		}
-	}
-	mode_id->pending = mode_blob;
 
 	if (!connector_commit(conn, DRM_MODE_ATOMIC_ALLOW_MODESET)) {
 		return false;

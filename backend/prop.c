@@ -11,6 +11,7 @@ const struct glider_drm_prop_spec
 const struct glider_drm_prop_spec
 		glider_drm_crtc_props[GLIDER_DRM_CRTC_PROP_COUNT] = {
 	[GLIDER_DRM_CRTC_MODE_ID] = { "MODE_ID", true },
+	[GLIDER_DRM_CRTC_ACTIVE] = { "ACTIVE", true },
 };
 
 const struct glider_drm_prop_spec

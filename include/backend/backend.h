@@ -19,6 +19,7 @@ enum glider_drm_connector_prop {
 
 enum glider_drm_crtc_prop {
 	GLIDER_DRM_CRTC_MODE_ID,
+	GLIDER_DRM_CRTC_ACTIVE,
 	GLIDER_DRM_CRTC_PROP_COUNT, // keep last
 };
 
@@ -182,6 +183,8 @@ bool init_drm_crtc(struct glider_drm_crtc *crtc,
 void finish_drm_crtc(struct glider_drm_crtc *crtc);
 void handle_drm_crtc_page_flip(struct glider_drm_crtc *crtc,
 	unsigned seq, struct timespec *t);
+bool set_drm_crtc_mode(struct glider_drm_crtc *crtc,
+	const struct glider_drm_mode *mode);
 
 bool init_drm_plane(struct glider_drm_plane *plane,
 	struct glider_drm_device *device, uint32_t id);
