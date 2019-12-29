@@ -62,8 +62,7 @@ static bool connector_commit(struct glider_drm_connector *conn,
 	move_drm_prop_values(conn->crtc->props,
 		GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
 
-	if (!(flags & DRM_MODE_PAGE_FLIP_EVENT) && ret == 0 &&
-			conn->crtc != NULL) {
+	if ((flags & DRM_MODE_PAGE_FLIP_EVENT) && ret == 0 && conn->crtc != NULL) {
 		// On a successful page-flip, mark the buffers we've just submitted
 		// to KMS
 		for (size_t i = 0; i < conn->crtc->attachments_cap; i++) {
