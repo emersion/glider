@@ -16,13 +16,16 @@ static struct glider_drm_connector *get_drm_connector_from_output(
 static bool connector_commit(struct glider_drm_connector *conn,
 		uint32_t flags) {
 	if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET) {
+		// TODO: device-wide modesets (requires new wlroots API)
 		wlr_log(WLR_DEBUG, "Performing atomic modeset on connector %"PRIu32,
 			conn->id);
 	} else if (flags & DRM_MODE_ATOMIC_TEST_ONLY) {
 		wlr_log(WLR_DEBUG, "Performing test-only atomic commit "
 			"on connector %"PRIu32, conn->id);
 	} else {
-		wlr_log(WLR_DEBUG, "Performing atomic commit on connector %"PRIu32,
+		// We need page-flip events to update buffers state
+		assert(flags & DRM_MODE_PAGE_FLIP_EVENT);
+		wlr_log(WLR_DEBUG, "Performing atomic page-flip on connector %"PRIu32,
 			conn->id);
 	}
 
@@ -50,14 +53,16 @@ static bool connector_commit(struct glider_drm_connector *conn,
 	if (ret != 0) {
 		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
 	}
+	// TODO: properties get applied on successful TEST_ONLY commits too
 	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
 		// Commit properties on success, rollback on failure
+		// TODO: release buffers when rolling back
 		move_drm_prop_values(conn->props,
 			GLIDER_DRM_CONNECTOR_PROP_COUNT, ret == 0);
 		move_drm_prop_values(conn->crtc->props,
 			GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
 	}
-	if (!(flags & DRM_MODE_ATOMIC_TEST_ONLY) && ret == 0 &&
+	if (!(flags & DRM_MODE_PAGE_FLIP_EVENT) && ret == 0 &&
 			conn->crtc != NULL) {
 		// On a successful page-flip, mark the buffers we've just submitted
 		// to KMS
@@ -411,8 +416,8 @@ void unlock_drm_attachment(struct glider_drm_attachment *att) {
 
 bool glider_drm_connector_attach(struct wlr_output *output,
 		struct glider_buffer *buffer, struct liftoff_layer *layer) {
-	// TODO: accept a NULL buffer to reset the pending buffer (e.g. when the
-	// atomic test-only commit fails)
+	// TODO: accept a NULL buffer to reset the pending buffer (e.g. when forcing
+	// composition)
 
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
 	if (conn->crtc == NULL) {
