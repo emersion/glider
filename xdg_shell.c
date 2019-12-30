@@ -76,6 +76,10 @@ void handle_new_xdg_surface(struct wl_listener *listener, void *data) {
 	// TODO: create surface_output on hotplug too
 	struct glider_output *output;
 	wl_list_for_each(output, &server->outputs, link) {
+		if (output->liftoff_output == NULL) {
+			continue;
+		}
+
 		struct glider_surface_output *so = calloc(1, sizeof(*so));
 		so->output = output;
 		so->surface = surface;
