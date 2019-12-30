@@ -88,7 +88,8 @@ static bool connector_commit(struct glider_drm_connector *conn,
 
 bool glider_drm_connector_commit(struct wlr_output *output) {
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	return connector_commit(conn, DRM_MODE_PAGE_FLIP_EVENT);
+	return connector_commit(conn,
+		DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_ATOMIC_NONBLOCK);
 }
 
 bool glider_drm_connector_test(struct wlr_output *output) {
