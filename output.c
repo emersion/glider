@@ -191,9 +191,13 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	output->frame.notify = handle_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
 
+	// TODO: push the first frame on modeset (this requires allocating the CRTC
+	// before making use of libliftoff)
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
-	if (!wlr_output_set_mode(wlr_output, mode)) {
-		wlr_log(WLR_ERROR, "Modeset failed on output");
+	wlr_output_enable(wlr_output, true);
+	wlr_output_set_mode(wlr_output, mode);
+	if (!glider_drm_connector_commit(wlr_output)) {
+		wlr_log(WLR_ERROR, "Failed to modeset output");
 		return;
 	}
 
@@ -259,6 +263,4 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 			output->bg_layer)) {
 		return;
 	}
-
-	output_push_frame(output);
 }

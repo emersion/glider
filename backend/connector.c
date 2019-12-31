@@ -13,90 +13,6 @@ static struct glider_drm_connector *get_drm_connector_from_output(
 	return (struct glider_drm_connector *)wlr_output;
 }
 
-static bool connector_apply_props(struct glider_drm_connector *conn,
-		drmModeAtomicReq *req) {
-	if (!apply_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT,
-			conn->id, req)) {
-		return false;
-	}
-	if (conn->crtc != NULL) {
-		if (!apply_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT,
-				conn->crtc->id, req)) {
-			return false;
-		}
-		if (!liftoff_output_apply(conn->crtc->liftoff_output, req)) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-static bool connector_commit(struct glider_drm_connector *conn,
-		uint32_t flags) {
-	if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET) {
-		// TODO: device-wide modesets (requires new wlroots API)
-		wlr_log(WLR_DEBUG, "Performing atomic modeset on connector %"PRIu32,
-			conn->id);
-	} else if (flags & DRM_MODE_ATOMIC_TEST_ONLY) {
-		wlr_log(WLR_DEBUG, "Performing test-only atomic commit "
-			"on connector %"PRIu32, conn->id);
-	} else {
-		// We need page-flip events to update buffers state
-		assert(flags & DRM_MODE_PAGE_FLIP_EVENT);
-		wlr_log(WLR_DEBUG, "Performing atomic page-flip on connector %"PRIu32,
-			conn->id);
-	}
-
-	drmModeAtomicReq *req = drmModeAtomicAlloc();
-	if (req == NULL) {
-		return false;
-	}
-
-	if (!connector_apply_props(conn, req)) {
-		drmModeAtomicFree(req);
-		return false;
-	}
-
-	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, conn->device);
-	drmModeAtomicFree(req);
-	if (ret != 0) {
-		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
-	}
-
-	// Commit properties on success, rollback on failure. Atomic test-only
-	// commits also apply properties (without submitting a new frame).
-	// TODO: release buffers when rolling back
-	move_drm_prop_values(conn->props,
-		GLIDER_DRM_CONNECTOR_PROP_COUNT, ret == 0);
-	move_drm_prop_values(conn->crtc->props,
-		GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
-
-	if ((flags & DRM_MODE_PAGE_FLIP_EVENT) && ret == 0 && conn->crtc != NULL) {
-		// On a successful page-flip, mark the buffers we've just submitted
-		// to KMS
-		for (size_t i = 0; i < conn->crtc->attachments_cap; i++) {
-			struct glider_drm_attachment *att = &conn->crtc->attachments[i];
-			if (att->state == GLIDER_DRM_BUFFER_PENDING) {
-				att->state = GLIDER_DRM_BUFFER_QUEUED;
-			}
-		}
-	}
-
-	return ret == 0;
-}
-
-bool glider_drm_connector_commit(struct wlr_output *output) {
-	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	return connector_commit(conn,
-		DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_ATOMIC_NONBLOCK);
-}
-
-bool glider_drm_connector_test(struct wlr_output *output) {
-	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	return connector_commit(conn, DRM_MODE_ATOMIC_TEST_ONLY);
-}
-
 static struct glider_drm_crtc *connector_pick_crtc(
 		struct glider_drm_connector *conn) {
 	struct glider_drm_device *device = conn->device;
@@ -142,33 +58,135 @@ static void connector_set_crtc(struct glider_drm_connector *conn,
 	conn->props[GLIDER_DRM_CONNECTOR_CRTC_ID].pending = crtc ? crtc->id : 0;
 }
 
-static bool output_set_mode(struct wlr_output *output,
-		struct wlr_output_mode *wlr_mode) {
-	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	struct glider_drm_mode *mode = (struct glider_drm_mode *)wlr_mode;
-
-	struct glider_drm_crtc *crtc = connector_pick_crtc(conn);
-	if (crtc == NULL) {
-		wlr_log(WLR_ERROR, "Modeset failed: no CRTC available");
+static bool connector_apply_props(struct glider_drm_connector *conn,
+		drmModeAtomicReq *req) {
+	if (!apply_drm_props(conn->props, GLIDER_DRM_CONNECTOR_PROP_COUNT,
+			conn->id, req)) {
 		return false;
 	}
-
-	if (!set_drm_crtc_mode(crtc, mode)) {
-		return false;
+	if (conn->crtc != NULL) {
+		if (!apply_drm_props(conn->crtc->props, GLIDER_DRM_CRTC_PROP_COUNT,
+				conn->crtc->id, req)) {
+			return false;
+		}
+		if (!liftoff_output_apply(conn->crtc->liftoff_output, req)) {
+			return false;
+		}
 	}
 
-	// TODO: perform a test-only commit
-	// TODO: change wlr_output semantics to only apply the mode on commit
-
-	connector_set_crtc(conn, crtc);
-
-	if (!connector_commit(conn, DRM_MODE_ATOMIC_ALLOW_MODESET)) {
-		return false;
-	}
-
-	wlr_output_update_mode(&conn->output, wlr_mode);
-	wlr_output_update_enabled(&conn->output, true);
 	return true;
+}
+
+static bool connector_commit(struct glider_drm_connector *conn,
+		bool test_only) {
+	struct wlr_output_state *pending = &conn->output.pending;
+
+	uint32_t flags = 0;
+	if (test_only) {
+		flags |= DRM_MODE_ATOMIC_TEST_ONLY;
+	} else {
+		// We need page-flip events to update buffers state
+		flags |= DRM_MODE_PAGE_FLIP_EVENT;
+	}
+	if (pending->committed & WLR_OUTPUT_STATE_MODE) {
+		flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+	} else if (!test_only) {
+		flags |= DRM_MODE_ATOMIC_NONBLOCK;
+	}
+
+	// TODO: WLR_OUTPUT_STATE_ENABLED
+	if (pending->committed & WLR_OUTPUT_STATE_MODE) {
+		if (pending->mode_type != WLR_OUTPUT_STATE_MODE_FIXED) {
+			wlr_log(WLR_ERROR, "Modeset failed: "
+				"custom modes not yet implemented");
+			return false; // TODO: add suppport for custom modes
+		}
+
+		if (conn->crtc == NULL) {
+			struct glider_drm_crtc *crtc = connector_pick_crtc(conn);
+			if (crtc == NULL) {
+				wlr_log(WLR_ERROR, "Modeset failed: no CRTC available");
+				return false;
+			}
+			connector_set_crtc(conn, crtc);
+		}
+
+		struct wlr_output_mode *wlr_mode = pending->mode;
+		struct glider_drm_mode *mode = (struct glider_drm_mode *)wlr_mode;
+		if (!set_drm_crtc_mode(conn->crtc, mode)) {
+			return false;
+		}
+	}
+
+	if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET) {
+		// TODO: device-wide modesets (requires new wlroots API)
+		wlr_log(WLR_DEBUG, "Performing atomic modeset on connector %"PRIu32,
+			conn->id);
+	} else if (flags & DRM_MODE_ATOMIC_TEST_ONLY) {
+		wlr_log(WLR_DEBUG, "Performing test-only atomic commit "
+			"on connector %"PRIu32, conn->id);
+	} else {
+		wlr_log(WLR_DEBUG, "Performing atomic page-flip on connector %"PRIu32,
+			conn->id);
+	}
+
+	drmModeAtomicReq *req = drmModeAtomicAlloc();
+	if (req == NULL) {
+		wlr_log_errno(WLR_ERROR, "drmModeAtomicAlloc failed");
+		return false;
+	}
+
+	if (!connector_apply_props(conn, req)) {
+		drmModeAtomicFree(req);
+		return false;
+	}
+
+	int ret = drmModeAtomicCommit(conn->device->fd, req, flags, conn->device);
+	drmModeAtomicFree(req);
+	if (ret != 0) {
+		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
+	}
+
+	// Commit properties on success, rollback on failure. Atomic test-only
+	// commits also apply properties (without submitting a new frame).
+	// TODO: release buffers when rolling back
+	move_drm_prop_values(conn->props,
+		GLIDER_DRM_CONNECTOR_PROP_COUNT, ret == 0);
+	move_drm_prop_values(conn->crtc->props,
+		GLIDER_DRM_CRTC_PROP_COUNT, ret == 0);
+
+	if ((flags & DRM_MODE_PAGE_FLIP_EVENT) && ret == 0 && conn->crtc != NULL) {
+		// On a successful page-flip, mark the buffers we've just submitted
+		// to KMS
+		for (size_t i = 0; i < conn->crtc->attachments_cap; i++) {
+			struct glider_drm_attachment *att = &conn->crtc->attachments[i];
+			if (att->state == GLIDER_DRM_BUFFER_PENDING) {
+				att->state = GLIDER_DRM_BUFFER_QUEUED;
+			}
+		}
+	}
+
+	if (ret == 0 && !(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
+		wlr_output_update_enabled(&conn->output, true);
+		if (pending->committed & WLR_OUTPUT_STATE_MODE) {
+			wlr_output_update_mode(&conn->output, pending->mode);
+		}
+	}
+
+	// Clear the pending state
+	// TODO: use the wlr_output commit interface
+	wlr_output_rollback(&conn->output);
+	return ret == 0;
+}
+
+bool glider_drm_connector_commit(struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	return connector_commit(conn, false);
+}
+
+bool glider_drm_connector_test(struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	return connector_commit(conn, true);
 }
 
 static bool output_attach_render(struct wlr_output *output, int *buffer_age) {
@@ -195,7 +213,6 @@ static void output_destroy(struct wlr_output *output) {
 }
 
 static const struct wlr_output_impl output_impl = {
-	.set_mode = output_set_mode,
 	.attach_render = output_attach_render,
 	.commit = output_commit,
 	.destroy = output_destroy,
