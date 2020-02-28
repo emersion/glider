@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <wlr/util/log.h>
+#include <wlr/types/wlr_buffer.h>
 #include "allocator.h"
 #include "swapchain.h"
 
@@ -42,7 +43,7 @@ static void slot_reset(struct glider_swapchain_slot *slot) {
 	if (slot->acquired) {
 		wl_list_remove(&slot->release.link);
 	}
-	glider_buffer_unref(slot->buffer);
+	wlr_buffer_unlock(slot->buffer);
 	memset(slot, 0, sizeof(*slot));
 }
 
@@ -62,7 +63,7 @@ static void slot_handle_release(struct wl_listener *listener, void *data) {
 	slot->acquired = false;
 }
 
-static struct glider_buffer *slot_acquire(struct glider_swapchain_slot *slot) {
+static struct wlr_buffer *slot_acquire(struct glider_swapchain_slot *slot) {
 	assert(!slot->acquired);
 	assert(slot->buffer != NULL);
 
@@ -71,11 +72,10 @@ static struct glider_buffer *slot_acquire(struct glider_swapchain_slot *slot) {
 	slot->release.notify = slot_handle_release;
 	wl_signal_add(&slot->buffer->events.release, &slot->release);
 
-	glider_buffer_lock(slot->buffer);
-	return slot->buffer;
+	return wlr_buffer_lock(slot->buffer);
 }
 
-struct glider_buffer *glider_swapchain_acquire(
+struct wlr_buffer *glider_swapchain_acquire(
 		struct glider_swapchain *swapchain) {
 	struct glider_swapchain_slot *free_slot = NULL;
 	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {

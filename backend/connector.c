@@ -411,22 +411,22 @@ static bool attach_drm_buffer(struct glider_drm_buffer *buf,
 	free_att->state = GLIDER_DRM_BUFFER_PENDING;
 	free_att->buffer = buf;
 	free_att->layer = layer;
-	glider_buffer_lock(buf->buffer);
+	wlr_buffer_lock(buf->buffer);
 	return true;
 }
 
 void unlock_drm_attachment(struct glider_drm_attachment *att) {
 	assert(att->state != GLIDER_DRM_BUFFER_UNLOCKED);
 
-	struct glider_buffer *buf = att->buffer->buffer;
+	struct wlr_buffer *buf = att->buffer->buffer;
 	att->state = GLIDER_DRM_BUFFER_UNLOCKED;
 	att->buffer = NULL;
 	att->layer = NULL;
-	glider_buffer_unlock(buf);
+	wlr_buffer_unlock(buf);
 }
 
 bool glider_drm_connector_attach(struct wlr_output *output,
-		struct glider_buffer *buffer, struct liftoff_layer *layer) {
+		struct wlr_buffer *buffer, struct liftoff_layer *layer) {
 	// TODO: accept a NULL buffer to reset the pending buffer (e.g. when forcing
 	// composition)
 

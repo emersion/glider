@@ -391,7 +391,7 @@ static void handle_buffer_destroy(struct wl_listener *listener, void *data) {
 }
 
 struct glider_drm_buffer *get_or_create_drm_buffer(
-		struct glider_drm_device *device, struct glider_buffer *buffer) {
+		struct glider_drm_device *device, struct wlr_buffer *buffer) {
 	struct glider_drm_buffer *drm_buffer;
 	wl_list_for_each(drm_buffer, &device->buffers, link) {
 		if (drm_buffer->buffer == buffer) {
@@ -399,10 +399,15 @@ struct glider_drm_buffer *get_or_create_drm_buffer(
 		}
 	}
 
+	struct wlr_dmabuf_attributes dmabuf;
+	if (!wlr_buffer_get_dmabuf(buffer, &dmabuf)) {
+		return NULL;
+	}
+
 	if (!wlr_drm_format_set_has(&device->formats,
-			buffer->format, buffer->modifier)) {
+			dmabuf.format, dmabuf.modifier)) {
 		wlr_log(WLR_DEBUG, "No plane can scan-out format 0x%"PRIX32", "
-			"modifier 0x%"PRIX64, buffer->format, buffer->modifier);
+			"modifier 0x%"PRIX64, dmabuf.format, dmabuf.modifier);
 		return NULL;
 	}
 
@@ -413,11 +418,6 @@ struct glider_drm_buffer *get_or_create_drm_buffer(
 
 	drm_buffer->buffer = buffer;
 	drm_buffer->device = device;
-
-	struct wlr_dmabuf_attributes dmabuf;
-	if (!glider_buffer_get_dmabuf(buffer, &dmabuf)) {
-		goto error_drm_buffer;
-	}
 
 	// In theory we could bypass GBM and directly add the FB via some
 	// drmPrimeFDToHandle calls, however this leads to various issues regarding
