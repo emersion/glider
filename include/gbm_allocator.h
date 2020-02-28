@@ -2,10 +2,11 @@
 #define GLIDER_GBM_ALLOCATOR_H
 
 #include <gbm.h>
+#include <wlr/types/wlr_buffer.h>
 #include "allocator.h"
 
 struct glider_gbm_buffer {
-	struct glider_buffer base;
+	struct wlr_buffer base;
 
 	struct gbm_bo *gbm_bo;
 };

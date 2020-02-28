@@ -56,7 +56,7 @@ void glider_gl_renderer_destroy(struct glider_gl_renderer *renderer) {
 }
 
 static struct glider_gl_renderer_buffer *get_buffer(
-		struct glider_gl_renderer *renderer, struct glider_buffer *buffer) {
+		struct glider_gl_renderer *renderer, struct wlr_buffer *buffer) {
 	struct glider_gl_renderer_buffer *renderer_buffer;
 	wl_list_for_each(renderer_buffer, &renderer->buffers, link) {
 		if (renderer_buffer->buffer == buffer) {
@@ -73,7 +73,7 @@ static void handle_buffer_destroy(struct wl_listener *listener, void *data) {
 }
 
 static struct glider_gl_renderer_buffer *renderer_buffer_create(
-		struct glider_gl_renderer *renderer, struct glider_buffer *buffer) {
+		struct glider_gl_renderer *renderer, struct wlr_buffer *buffer) {
 	struct glider_gl_renderer_buffer *renderer_buffer =
 		calloc(1, sizeof(*renderer_buffer));
 	if (renderer_buffer == NULL) {
@@ -84,7 +84,7 @@ static struct glider_gl_renderer_buffer *renderer_buffer_create(
 	renderer_buffer->renderer = renderer;
 
 	struct wlr_dmabuf_attributes dmabuf;
-	if (!glider_buffer_get_dmabuf(buffer, &dmabuf)) {
+	if (!wlr_buffer_get_dmabuf(buffer, &dmabuf)) {
 		goto error;
 	}
 
@@ -138,7 +138,7 @@ error:
 }
 
 bool glider_gl_renderer_begin(struct glider_gl_renderer *renderer,
-		struct glider_buffer *buffer) {
+		struct wlr_buffer *buffer) {
 	assert(renderer->current_buffer == NULL);
 
 	struct glider_gl_renderer_buffer *renderer_buffer =
@@ -157,7 +157,7 @@ bool glider_gl_renderer_begin(struct glider_gl_renderer *renderer,
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer_buffer->gl_fbo);
 	wlr_renderer_begin(renderer->renderer, renderer_buffer->buffer->width,
 		renderer_buffer->buffer->height);
-	glider_buffer_lock(buffer);
+	wlr_buffer_lock(buffer);
 	renderer->current_buffer = renderer_buffer;
 
 	return true;
@@ -168,6 +168,6 @@ void glider_gl_renderer_end(struct glider_gl_renderer *renderer) {
 	glFlush();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	wlr_renderer_end(renderer->renderer);
-	glider_buffer_unlock(renderer->current_buffer->buffer);
+	wlr_buffer_unlock(renderer->current_buffer->buffer);
 	renderer->current_buffer = NULL;
 }

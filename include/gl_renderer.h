@@ -8,9 +8,10 @@
 #include <gbm.h>
 #include <stdbool.h>
 #include <wlr/render/egl.h>
+#include <wlr/types/wlr_buffer.h>
 
 struct glider_gl_renderer_buffer {
-	struct glider_buffer *buffer;
+	struct wlr_buffer *buffer;
 	struct glider_gl_renderer *renderer;
 	struct wl_list link;
 
@@ -32,7 +33,7 @@ struct glider_gl_renderer {
 struct glider_gl_renderer *glider_gl_gbm_renderer_create(struct gbm_device *device);
 void glider_gl_renderer_destroy(struct glider_gl_renderer *renderer);
 bool glider_gl_renderer_begin(struct glider_gl_renderer *renderer,
-	struct glider_buffer *buffer);
+	struct wlr_buffer *buffer);
 void glider_gl_renderer_end(struct glider_gl_renderer *renderer);
 
 #endif

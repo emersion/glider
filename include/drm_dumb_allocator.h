@@ -1,10 +1,11 @@
 #ifndef GLIDER_DRM_DUMB_ALLOCATOR_H
 #define GLIDER_DRM_DUMB_ALLOCATOR_H
 
+#include <wlr/types/wlr_buffer.h>
 #include "allocator.h"
 
 struct glider_drm_dumb_buffer {
-	struct glider_buffer base;
+	struct wlr_buffer base;
 
 	int drm_fd;
 	uint32_t format;

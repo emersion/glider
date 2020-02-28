@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_buffer.h>
 #include <wlr/util/log.h>
 #include "allocator.h"
 #include "backend/backend.h"
@@ -12,7 +13,7 @@
 #include "surface.h"
 
 static bool output_render_bg(struct glider_output *output,
-		struct glider_buffer *buf) {
+		struct wlr_buffer *buf) {
 	struct glider_server *server = output->server;
 
 	if (!glider_gl_renderer_begin(server->renderer, buf)) {
@@ -43,7 +44,7 @@ static bool output_needs_render(struct glider_output *output) {
 }
 
 static bool output_render(struct glider_output *output,
-		struct glider_buffer *buf) {
+		struct wlr_buffer *buf) {
 	struct glider_server *server = output->server;
 
 	wlr_log(WLR_DEBUG, "Rendering output");
@@ -79,7 +80,7 @@ static bool output_render(struct glider_output *output,
 }
 
 bool glider_output_attach_buffer(struct glider_output *output,
-		struct glider_buffer *buf, struct liftoff_layer *layer) {
+		struct wlr_buffer *buf, struct liftoff_layer *layer) {
 	liftoff_layer_set_property(layer, "CRTC_X", 0);
 	liftoff_layer_set_property(layer, "CRTC_Y", 0);
 	liftoff_layer_set_property(layer, "CRTC_W", buf->width);
@@ -96,7 +97,7 @@ bool glider_output_attach_buffer(struct glider_output *output,
 }
 
 static bool output_test(struct glider_output *output) {
-	struct glider_buffer *buf = glider_swapchain_acquire(output->swapchain);
+	struct wlr_buffer *buf = glider_swapchain_acquire(output->swapchain);
 	if (buf == NULL) {
 		wlr_log(WLR_ERROR, "Failed to get next buffer");
 		return false;
@@ -108,11 +109,11 @@ static bool output_test(struct glider_output *output) {
 		wlr_log(WLR_DEBUG, "Connector test failed");
 		goto error_buffer;
 	}
-	glider_buffer_unlock(buf);
+	wlr_buffer_unlock(buf);
 	return true;
 
 error_buffer:
-	glider_buffer_unlock(buf);
+	wlr_buffer_unlock(buf);
 	return false;
 }
 
@@ -121,7 +122,7 @@ static void output_push_frame(struct glider_output *output) {
 		return;
 	}
 
-	struct glider_buffer *buf = NULL;
+	struct wlr_buffer *buf = NULL;
 	if (output_needs_render(output)) {
 		buf = glider_swapchain_acquire(output->swapchain);
 		if (buf == NULL) {
@@ -143,14 +144,14 @@ static void output_push_frame(struct glider_output *output) {
 
 out:
 	if (buf != NULL) {
-		glider_buffer_unlock(buf);
+		wlr_buffer_unlock(buf);
 	}
 }
 
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
 	wl_signal_emit(&output->events.destroy, NULL);
-	glider_buffer_unref(output->bg_buffer);
+	wlr_buffer_unlock(output->bg_buffer);
 	liftoff_layer_destroy(output->bg_layer);
 	glider_swapchain_destroy(output->swapchain);
 	liftoff_layer_destroy(output->composition_layer);

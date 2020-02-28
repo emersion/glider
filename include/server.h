@@ -10,7 +10,7 @@ struct glider_output {
 
 	struct liftoff_output *liftoff_output;
 
-	struct glider_buffer *bg_buffer;
+	struct wlr_buffer *bg_buffer;
 	struct liftoff_layer *bg_layer;
 
 	struct glider_swapchain *swapchain;
@@ -51,9 +51,9 @@ void handle_new_output(struct wl_listener *listener, void *data);
 void handle_new_input(struct wl_listener *listener, void *data);
 void handle_new_xdg_surface(struct wl_listener *listener, void *data);
 
-struct glider_buffer;
+struct wlr_buffer;
 
 bool glider_output_attach_buffer(struct glider_output *output,
-	struct glider_buffer *buf, struct liftoff_layer *layer);
+	struct wlr_buffer *buf, struct liftoff_layer *layer);
 
 #endif

@@ -4,10 +4,10 @@
 #include <wlr/util/log.h>
 #include "gbm_allocator.h"
 
-static const struct glider_buffer_interface buffer_impl;
+static const struct wlr_buffer_impl buffer_impl;
 
 static struct glider_gbm_buffer *get_gbm_buffer_from_buffer(
-		struct glider_buffer *buffer) {
+		struct wlr_buffer *buffer) {
 	assert(buffer->impl == &buffer_impl);
 	return (struct glider_gbm_buffer *)buffer;
 }
@@ -33,28 +33,27 @@ struct glider_gbm_buffer *glider_gbm_buffer_create(struct gbm_device *gbm_device
 		gbm_bo_destroy(bo);
 		return NULL;
 	}
-	glider_buffer_init(&buffer->base, &buffer_impl, width, height,
-		gbm_bo_get_format(bo), gbm_bo_get_modifier(bo));
+	wlr_buffer_init(&buffer->base, &buffer_impl, width, height);
 	buffer->gbm_bo = bo;
 
 	wlr_log(WLR_DEBUG, "Allocated %dx%d GBM buffer (format 0x%"PRIX32", "
 		"modifier 0x%"PRIX64")", buffer->base.width, buffer->base.height,
-		buffer->base.format, buffer->base.modifier);
+		gbm_bo_get_format(bo), gbm_bo_get_modifier(bo));
 
 	return buffer;
 }
 
-static void buffer_destroy(struct glider_buffer *glider_buffer) {
+static void buffer_destroy(struct wlr_buffer *wlr_buffer) {
 	struct glider_gbm_buffer *buffer =
-		get_gbm_buffer_from_buffer(glider_buffer);
+		get_gbm_buffer_from_buffer(wlr_buffer);
 	gbm_bo_destroy(buffer->gbm_bo);
 	free(buffer);
 }
 
-static bool buffer_get_dmabuf(struct glider_buffer *glider_buffer,
+static bool buffer_get_dmabuf(struct wlr_buffer *wlr_buffer,
 		struct wlr_dmabuf_attributes *attribs) {
 	struct glider_gbm_buffer *buffer =
-		get_gbm_buffer_from_buffer(glider_buffer);
+		get_gbm_buffer_from_buffer(wlr_buffer);
 
 	memset(attribs, 0, sizeof(struct wlr_dmabuf_attributes));
 
@@ -92,7 +91,7 @@ error_fd:
 	return false;
 }
 
-static const struct glider_buffer_interface buffer_impl = {
+static const struct wlr_buffer_impl buffer_impl = {
 	.destroy = buffer_destroy,
 	.get_dmabuf = buffer_get_dmabuf,
 };
@@ -131,7 +130,7 @@ static void allocator_destroy(struct glider_allocator *glider_alloc) {
 	free(alloc);
 }
 
-static struct glider_buffer *allocator_create_buffer(
+static struct wlr_buffer *allocator_create_buffer(
 		struct glider_allocator *glider_alloc, int width, int height,
 		const struct wlr_drm_format *format) {
 	struct glider_gbm_allocator *alloc = get_gbm_alloc_from_alloc(glider_alloc);

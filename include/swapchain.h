@@ -8,7 +8,7 @@
 #define GLIDER_SWAPCHAIN_CAP 3
 
 struct glider_swapchain_slot {
-	struct glider_buffer *buffer;
+	struct wlr_buffer *buffer;
 	bool acquired; // waiting for release
 
 	struct wl_listener release;
@@ -35,7 +35,7 @@ void glider_swapchain_destroy(struct glider_swapchain *swapchain);
  * The returned buffer is locked. When the caller is done with it, they must
  * unlock it.
  */
-struct glider_buffer *glider_swapchain_acquire(
+struct wlr_buffer *glider_swapchain_acquire(
 	struct glider_swapchain *swapchain);
 bool glider_swapchain_resize(struct glider_swapchain *swapchain,
 	int width, int height);

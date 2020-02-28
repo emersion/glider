@@ -55,7 +55,7 @@ enum glider_drm_buffer_state {
 
 struct glider_drm_buffer {
 	struct glider_drm_device *device;
-	struct glider_buffer *buffer;
+	struct wlr_buffer *buffer;
 	struct wl_list link;
 
 	struct gbm_bo *gbm;
@@ -162,7 +162,7 @@ const struct wlr_drm_format_set *glider_drm_connector_get_primary_formats(
 struct liftoff_output *glider_drm_connector_get_liftoff_output(
 	struct wlr_output *output);
 bool glider_drm_connector_attach(struct wlr_output *output,
-	struct glider_buffer *buffer, struct liftoff_layer *layer);
+	struct wlr_buffer *buffer, struct liftoff_layer *layer);
 bool glider_drm_connector_commit(struct wlr_output *output);
 bool glider_drm_connector_test(struct wlr_output *output);
 
@@ -191,7 +191,7 @@ bool init_drm_plane(struct glider_drm_plane *plane,
 void finish_drm_plane(struct glider_drm_plane *plane);
 
 struct glider_drm_buffer *get_or_create_drm_buffer(
-	struct glider_drm_device *device, struct glider_buffer *buffer);
+	struct glider_drm_device *device, struct wlr_buffer *buffer);
 void unlock_drm_attachment(struct glider_drm_attachment *att);
 
 bool init_drm_props(struct glider_drm_prop *props,

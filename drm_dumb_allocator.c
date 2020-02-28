@@ -16,10 +16,10 @@ static const struct format_info formats[] = {
 	{ .format = DRM_FORMAT_ARGB8888, .bpp = 32 },
 };
 
-static const struct glider_buffer_interface buffer_impl;
+static const struct wlr_buffer_impl buffer_impl;
 
 static struct glider_drm_dumb_buffer *get_drm_dumb_buffer_from_buffer(
-		struct glider_buffer *buffer) {
+		struct wlr_buffer *buffer) {
 	assert(buffer->impl == &buffer_impl);
 	return (struct glider_drm_dumb_buffer *)buffer;
 }
@@ -42,8 +42,7 @@ struct glider_drm_dumb_buffer *glider_drm_dumb_buffer_create(int drm_fd,
 	if (buffer == NULL) {
 		return NULL;
 	}
-	glider_buffer_init(&buffer->base, &buffer_impl, width, height,
-		format, DRM_FORMAT_MOD_INVALID);
+	wlr_buffer_init(&buffer->base, &buffer_impl, width, height);
 
 	struct drm_mode_create_dumb create = {
 		.width = width,
@@ -66,14 +65,14 @@ struct glider_drm_dumb_buffer *glider_drm_dumb_buffer_create(int drm_fd,
 	buffer->handle = create.handle;
 
 	wlr_log(WLR_DEBUG, "Allocated %dx%d dumb DRM buffer (format 0x%"PRIX32")",
-		buffer->base.width, buffer->base.height, buffer->base.format);
+		buffer->base.width, buffer->base.height, format);
 
 	return buffer;
 }
 
-static void buffer_destroy(struct glider_buffer *glider_buffer) {
+static void buffer_destroy(struct wlr_buffer *wlr_buffer) {
 	struct glider_drm_dumb_buffer *buffer =
-		get_drm_dumb_buffer_from_buffer(glider_buffer);
+		get_drm_dumb_buffer_from_buffer(wlr_buffer);
 
 	struct drm_mode_destroy_dumb destroy = { .handle = buffer->handle };
 	int ret = drmIoctl(buffer->drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
@@ -84,12 +83,12 @@ static void buffer_destroy(struct glider_buffer *glider_buffer) {
 	free(buffer);
 }
 
-static bool buffer_get_dmabuf(struct glider_buffer *glider_buffer,
+static bool buffer_get_dmabuf(struct wlr_buffer *wlr_buffer,
 		struct wlr_dmabuf_attributes *attribs) {
 	return false;
 }
 
-static const struct glider_buffer_interface buffer_impl = {
+static const struct wlr_buffer_impl buffer_impl = {
 	.destroy = buffer_destroy,
 	.get_dmabuf = buffer_get_dmabuf,
 };
@@ -136,7 +135,7 @@ static void allocator_destroy(struct glider_allocator *glider_alloc) {
 	free(alloc);
 }
 
-static struct glider_buffer *allocator_create_buffer(
+static struct wlr_buffer *allocator_create_buffer(
 		struct glider_allocator *glider_alloc, int width, int height,
 		const struct wlr_drm_format *format) {
 	struct glider_drm_dumb_allocator *alloc =
