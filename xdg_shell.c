@@ -3,7 +3,7 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include "allocator.h"
 #include "server.h"
-#include "wlr_buffer.h"
+#include "client_buffer.h"
 #include "surface.h"
 
 static void surface_output_destroy(struct glider_surface_output *so) {
@@ -37,13 +37,13 @@ static void handle_surface_destroy(struct wl_listener *listener, void *data) {
 
 static void handle_surface_commit(struct wl_listener *listener, void *data) {
 	struct glider_surface *surface = wl_container_of(listener, surface, commit);
-	struct wlr_buffer *wlr_buffer = surface->wlr_surface->buffer;
+	struct wlr_client_buffer *client_buffer = surface->wlr_surface->buffer;
 
-	if (wlr_buffer == NULL) {
+	if (client_buffer == NULL) {
 		return;
 	}
 
-	struct glider_buffer *buffer = glider_wlr_buffer_create(wlr_buffer);
+	struct glider_buffer *buffer = glider_client_buffer_create(client_buffer);
 
 	struct glider_surface_output *so;
 	wl_list_for_each(so, &surface->outputs, link) {

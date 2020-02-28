@@ -63,7 +63,7 @@ executable(
 		'output.c',
 		'gl_renderer.c',
 		'swapchain.c',
-		'wlr_buffer.c',
+		'client_buffer.c',
 		'xdg_shell.c',
 	),
 	dependencies: [
