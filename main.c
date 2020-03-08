@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <unistd.h>
 #include <wlr/util/log.h>
 #include <wlr/backend/multi.h>
@@ -9,12 +10,35 @@
 #include "gl_renderer.h"
 #include "server.h"
 
+static enum wlr_log_importance log_importance_liftoff_to_wlr(
+		enum liftoff_log_importance importance) {
+	switch (importance) {
+	case LIFTOFF_SILENT:
+		return WLR_SILENT;
+	case LIFTOFF_ERROR:
+		return WLR_ERROR;
+	case LIFTOFF_DEBUG:
+		return WLR_DEBUG;
+	}
+	abort();
+}
+
+static void handle_liftoff_log(enum liftoff_log_importance importance,
+		const char *fmt, va_list args) {
+	char wlr_fmt[1024];
+	int n = snprintf(wlr_fmt, sizeof(wlr_fmt), "[liftoff] %s", fmt);
+	assert(n >= 0 && n < (int)sizeof(wlr_fmt));
+
+	_wlr_vlog(log_importance_liftoff_to_wlr(importance), wlr_fmt, args);
+}
+
 int main(int argc, char *argv[]) {
 	struct glider_server server = {0};
 	wl_list_init(&server.outputs);
 	wl_list_init(&server.surfaces);
 
 	wlr_log_init(WLR_DEBUG, NULL);
+	liftoff_log_init(LIFTOFF_DEBUG, handle_liftoff_log);
 
 	const char *startup_cmd = NULL;
 	int c;
