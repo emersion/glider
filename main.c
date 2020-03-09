@@ -82,6 +82,10 @@ int main(int argc, char *argv[]) {
 
 	// TODO: multi-GPU
 	int fd = glider_drm_backend_get_render_fd(drm_backend);
+	if (fd < 0) {
+		return 1;
+	}
+
 	struct glider_gbm_allocator *gbm_allocator =
 		glider_gbm_allocator_create(fd);
 	if (gbm_allocator == NULL) {
