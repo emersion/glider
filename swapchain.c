@@ -38,9 +38,18 @@ struct glider_swapchain *glider_swapchain_create(
 	return swapchain;
 }
 
+static void slot_reset(struct glider_swapchain_slot *slot) {
+	if (slot->acquired) {
+		wl_list_remove(&slot->destroy.link);
+		wl_list_remove(&slot->release.link);
+	}
+	glider_buffer_unref(slot->buffer);
+	memset(slot, 0, sizeof(*slot));
+}
+
 void glider_swapchain_destroy(struct glider_swapchain *swapchain) {
 	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {
-		glider_buffer_unref(swapchain->slots[i].buffer);
+		slot_reset(&swapchain->slots[i]);
 	}
 	wl_list_remove(&swapchain->allocator_destroy.link);
 	free(swapchain->format);
