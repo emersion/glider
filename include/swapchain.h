@@ -9,9 +9,8 @@
 
 struct glider_swapchain_slot {
 	struct glider_buffer *buffer;
-	bool acquired;
+	bool acquired; // waiting for release
 
-	struct wl_listener destroy;
 	struct wl_listener release;
 };
 
