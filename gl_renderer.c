@@ -157,6 +157,7 @@ bool glider_gl_renderer_begin(struct glider_gl_renderer *renderer,
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer_buffer->gl_fbo);
 	wlr_renderer_begin(renderer->renderer, renderer_buffer->buffer->width,
 		renderer_buffer->buffer->height);
+	glider_buffer_lock(buffer);
 	renderer->current_buffer = renderer_buffer;
 
 	return true;
@@ -167,5 +168,6 @@ void glider_gl_renderer_end(struct glider_gl_renderer *renderer) {
 	glFlush();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	wlr_renderer_end(renderer->renderer);
+	glider_buffer_unlock(renderer->current_buffer->buffer);
 	renderer->current_buffer = NULL;
 }
