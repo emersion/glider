@@ -106,3 +106,16 @@ struct glider_buffer *glider_swapchain_acquire(
 	}
 	return slot_acquire(free_slot);
 }
+
+bool glider_swapchain_resize(struct glider_swapchain *swapchain,
+		int width, int height) {
+	if (swapchain->width == width && swapchain->height == height) {
+		return true;
+	}
+	swapchain->width = width;
+	swapchain->height = height;
+	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {
+		slot_reset(&swapchain->slots[i]);
+	}
+	return true;
+}

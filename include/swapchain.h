@@ -37,6 +37,7 @@ void glider_swapchain_destroy(struct glider_swapchain *swapchain);
  */
 struct glider_buffer *glider_swapchain_acquire(
 	struct glider_swapchain *swapchain);
-// TODO: add glider_swapchain_resize
+bool glider_swapchain_resize(struct glider_swapchain *swapchain,
+	int width, int height);
 
 #endif
