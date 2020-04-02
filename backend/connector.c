@@ -147,8 +147,11 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
 	}
 
-	// Commit properties on success, rollback on failure. Atomic test-only
-	// commits also apply properties (without submitting a new frame).
+	if (flags & DRM_MODE_ATOMIC_TEST_ONLY) {
+		return ret == 0;
+	}
+
+	// Commit properties on success, rollback on failure
 	// TODO: release buffers when rolling back
 	move_drm_prop_values(conn->props,
 		GLIDER_DRM_CONNECTOR_PROP_COUNT, ret == 0);
@@ -166,7 +169,7 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		}
 	}
 
-	if (ret == 0 && !(flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
+	if (ret == 0) {
 		wlr_output_update_enabled(&conn->output, true);
 		if (pending->committed & WLR_OUTPUT_STATE_MODE) {
 			wlr_output_update_mode(&conn->output, pending->mode);
