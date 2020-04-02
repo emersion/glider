@@ -48,6 +48,9 @@ static void slot_reset(struct glider_swapchain_slot *slot) {
 }
 
 void glider_swapchain_destroy(struct glider_swapchain *swapchain) {
+	if (swapchain == NULL) {
+		return;
+	}
 	for (size_t i = 0; i < GLIDER_SWAPCHAIN_CAP; i++) {
 		slot_reset(&swapchain->slots[i]);
 	}
