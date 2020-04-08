@@ -43,7 +43,7 @@ static void slot_reset(struct glider_swapchain_slot *slot) {
 	if (slot->acquired) {
 		wl_list_remove(&slot->release.link);
 	}
-	wlr_buffer_unlock(slot->buffer);
+	wlr_buffer_drop(slot->buffer);
 	memset(slot, 0, sizeof(*slot));
 }
 

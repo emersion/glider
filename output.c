@@ -151,7 +151,7 @@ out:
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
 	wl_signal_emit(&output->events.destroy, NULL);
-	wlr_buffer_unlock(output->bg_buffer);
+	wlr_buffer_drop(output->bg_buffer);
 	liftoff_layer_destroy(output->bg_layer);
 	glider_swapchain_destroy(output->swapchain);
 	liftoff_layer_destroy(output->composition_layer);
