@@ -163,8 +163,6 @@ struct liftoff_output *glider_drm_connector_get_liftoff_output(
 	struct wlr_output *output);
 bool glider_drm_connector_attach(struct wlr_output *output,
 	struct wlr_buffer *buffer, struct liftoff_layer *layer);
-bool glider_drm_connector_commit(struct wlr_output *output);
-bool glider_drm_connector_test(struct wlr_output *output);
 
 bool init_drm_device(struct glider_drm_device *device,
 	struct glider_drm_backend *backend, int fd);

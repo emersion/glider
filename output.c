@@ -105,7 +105,7 @@ static bool output_test(struct glider_output *output) {
 	if (!glider_output_attach_buffer(output, buf, output->composition_layer)) {
 		goto error_buffer;
 	}
-	if (!glider_drm_connector_test(output->output)) {
+	if (!wlr_output_test(output->output)) {
 		wlr_log(WLR_DEBUG, "Connector test failed");
 		goto error_buffer;
 	}
@@ -137,7 +137,7 @@ static void output_push_frame(struct glider_output *output) {
 		}
 	}
 
-	if (!glider_drm_connector_commit(output->output)) {
+	if (!wlr_output_commit(output->output)) {
 		wlr_log(WLR_ERROR, "Failed to commit connector");
 		goto out;
 	}
@@ -197,7 +197,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
 	wlr_output_enable(wlr_output, true);
 	wlr_output_set_mode(wlr_output, mode);
-	if (!glider_drm_connector_commit(wlr_output)) {
+	if (!wlr_output_commit(wlr_output)) {
 		wlr_log(WLR_ERROR, "Failed to modeset output");
 		return;
 	}

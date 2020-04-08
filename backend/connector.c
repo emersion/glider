@@ -176,28 +176,21 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		}
 	}
 
-	// Clear the pending state
-	// TODO: use the wlr_output commit interface
-	wlr_output_rollback(&conn->output);
 	return ret == 0;
-}
-
-bool glider_drm_connector_commit(struct wlr_output *output) {
-	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	return connector_commit(conn, false);
-}
-
-bool glider_drm_connector_test(struct wlr_output *output) {
-	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
-	return connector_commit(conn, true);
 }
 
 static bool output_attach_render(struct wlr_output *output, int *buffer_age) {
 	return false;
 }
 
+static bool output_test(struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	return connector_commit(conn, true);
+}
+
 static bool output_commit(struct wlr_output *output) {
-	return false;
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+	return connector_commit(conn, false);
 }
 
 static void output_destroy(struct wlr_output *output) {
@@ -217,6 +210,7 @@ static void output_destroy(struct wlr_output *output) {
 
 static const struct wlr_output_impl output_impl = {
 	.attach_render = output_attach_render,
+	.test = output_test,
 	.commit = output_commit,
 	.destroy = output_destroy,
 };
