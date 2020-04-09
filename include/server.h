@@ -11,7 +11,7 @@ struct glider_output {
 	struct liftoff_output *liftoff_output;
 
 	struct wlr_buffer *bg_buffer;
-	struct liftoff_layer *bg_layer;
+	struct wlr_output_layer *bg_layer;
 
 	struct glider_swapchain *swapchain;
 	struct liftoff_layer *composition_layer;

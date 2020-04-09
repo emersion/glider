@@ -6,6 +6,7 @@
 #include <wlr/backend/interface.h>
 #include <wlr/interfaces/wlr_output.h>
 #include <wlr/render/drm_format_set.h>
+#include <wlr/types/wlr_output_layer.h>
 #include <xf86drmMode.h>
 #include "allocator.h"
 
@@ -114,6 +115,11 @@ struct glider_drm_connector {
 
 	struct glider_drm_mode *modes;
 	size_t modes_len;
+};
+
+struct glider_drm_layer {
+	struct wlr_output_layer base;
+	struct liftoff_layer *liftoff;
 };
 
 struct glider_drm_device {
