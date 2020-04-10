@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <drm_fourcc.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <wlr/util/log.h>
@@ -20,8 +21,12 @@ struct glider_gbm_buffer *glider_gbm_buffer_create(struct gbm_device *gbm_device
 			format->format, format->modifiers, format->len);
 	}
 	if (bo == NULL) {
-		bo = gbm_bo_create(gbm_device, width, height,
-			format->format, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+		uint32_t usage = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
+		if (format->len == 1 &&
+				format->modifiers[0] == DRM_FORMAT_MOD_LINEAR) {
+			usage |= GBM_BO_USE_LINEAR;
+		}
+		bo = gbm_bo_create(gbm_device, width, height, format->format, usage);
 	}
 	if (bo == NULL) {
 		wlr_log(WLR_ERROR, "gbm_bo_create failed");
