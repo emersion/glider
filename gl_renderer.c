@@ -88,8 +88,9 @@ static struct glider_gl_renderer_buffer *renderer_buffer_create(
 		goto error;
 	}
 
+	bool external_only;
 	renderer_buffer->egl_image = wlr_egl_create_image_from_dmabuf(
-		&renderer->egl, &dmabuf);
+		&renderer->egl, &dmabuf, &external_only);
 	if (renderer_buffer->egl_image == EGL_NO_IMAGE_KHR) {
 		goto error;
 	}
