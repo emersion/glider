@@ -183,6 +183,9 @@ static bool output_attach_render(struct wlr_output *output, int *buffer_age) {
 	return false;
 }
 
+static void output_rollback_render(struct wlr_output *output) {
+}
+
 static bool output_test(struct wlr_output *output) {
 	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
 	return connector_commit(conn, true);
@@ -210,6 +213,7 @@ static void output_destroy(struct wlr_output *output) {
 
 static const struct wlr_output_impl output_impl = {
 	.attach_render = output_attach_render,
+	.rollback_render = output_rollback_render,
 	.test = output_test,
 	.commit = output_commit,
 	.destroy = output_destroy,
