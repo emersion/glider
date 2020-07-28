@@ -40,7 +40,7 @@ static void renderer_buffer_destroy(struct glider_gl_renderer_buffer *buf) {
 	wl_list_remove(&buf->destroy.link);
 	glDeleteFramebuffers(1, &buf->gl_fbo);
 	glDeleteTextures(1, &buf->gl_texture);
-	wlr_egl_destroy_image(&buf->renderer->egl, &buf->egl_image);
+	wlr_egl_destroy_image(&buf->renderer->egl, buf->egl_image);
 	free(buf);
 }
 
