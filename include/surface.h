@@ -6,7 +6,7 @@
 struct glider_surface_output {
 	struct glider_output *output;
 	struct glider_surface *surface;
-	struct liftoff_layer *layer;
+	struct wlr_output_layer *layer;
 	struct wl_list link; // glider_surface.outputs
 
 	struct wl_listener destroy;

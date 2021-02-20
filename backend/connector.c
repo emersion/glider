@@ -56,6 +56,8 @@ static void connector_set_crtc(struct glider_drm_connector *conn,
 
 	conn->crtc = crtc;
 	conn->props[GLIDER_DRM_CONNECTOR_CRTC_ID].pending = crtc ? crtc->id : 0;
+
+	// TODO: teardown and re-create all liftoff_layers
 }
 
 static bool connector_apply_props(struct glider_drm_connector *conn,
@@ -80,6 +82,45 @@ static bool connector_apply_props(struct glider_drm_connector *conn,
 static bool connector_commit(struct glider_drm_connector *conn,
 		bool test_only) {
 	struct wlr_output_state *pending = &conn->output.pending;
+
+	struct glider_drm_layer *layer;
+	uint32_t zpos = 1;
+	wl_list_for_each(layer, &pending->layers, base.pending.link) {
+		layer->base.accepted = false;
+
+		liftoff_layer_set_property(layer->liftoff, "zpos", zpos);
+
+		if (layer->base.pending.committed & WLR_OUTPUT_LAYER_STATE_BUFFER) {
+			struct wlr_buffer *wlr_buffer = layer->base.pending.buffer;
+			if (wlr_buffer == NULL) {
+				// TODO
+			} else {
+				if (!glider_drm_connector_attach(&conn->output, wlr_buffer,
+						layer->liftoff)) {
+					liftoff_layer_set_fb_composited(layer->liftoff);
+				}
+				liftoff_layer_set_property(layer->liftoff,
+					"CRTC_W", wlr_buffer->width);
+				liftoff_layer_set_property(layer->liftoff,
+					"CRTC_H", wlr_buffer->height);
+				liftoff_layer_set_property(layer->liftoff, "SRC_X", 0);
+				liftoff_layer_set_property(layer->liftoff, "SRC_Y", 0);
+				liftoff_layer_set_property(layer->liftoff,
+					"SRC_W", wlr_buffer->width << 16);
+				liftoff_layer_set_property(layer->liftoff,
+					"SRC_H", wlr_buffer->height << 16);
+			}
+		}
+
+		if (layer->base.pending.committed & WLR_OUTPUT_LAYER_STATE_POSITION) {
+			liftoff_layer_set_property(layer->liftoff,
+				"CRTC_X", layer->base.pending.x);
+			liftoff_layer_set_property(layer->liftoff,
+				"CRTC_Y", layer->base.pending.y);
+		}
+
+		zpos++;
+	}
 
 	uint32_t flags = 0;
 	if (test_only) {
@@ -147,6 +188,14 @@ static bool connector_commit(struct glider_drm_connector *conn,
 		wlr_log(WLR_DEBUG, "Atomic commit failed: %s", strerror(-ret));
 	}
 
+	if (ret == 0) {
+		struct glider_drm_layer *layer;
+		wl_list_for_each(layer, &pending->layers, base.pending.link) {
+			layer->base.accepted =
+				liftoff_layer_get_plane_id(layer->liftoff) != 0;
+		}
+	}
+
 	if (flags & DRM_MODE_ATOMIC_TEST_ONLY) {
 		return ret == 0;
 	}
@@ -211,12 +260,38 @@ static void output_destroy(struct wlr_output *output) {
 	memset(&conn->output, 0, sizeof(struct wlr_output));
 }
 
+static struct wlr_output_layer *output_create_layer(struct wlr_output *output) {
+	struct glider_drm_connector *conn = get_drm_connector_from_output(output);
+
+	struct glider_drm_layer *layer = calloc(1, sizeof(*layer));
+	if (layer == NULL) {
+		return NULL;
+	}
+	wlr_output_layer_init(&layer->base, output);
+
+	layer->liftoff = liftoff_layer_create(conn->crtc->liftoff_output);
+	if (layer->liftoff == NULL) {
+		free(layer);
+		return NULL;
+	}
+
+	return &layer->base;
+}
+
+static void output_destroy_layer(struct wlr_output_layer *wlr_layer) {
+	struct glider_drm_layer *layer = (struct glider_drm_layer *)wlr_layer;
+	liftoff_layer_destroy(layer->liftoff);
+	free(layer);
+}
+
 static const struct wlr_output_impl output_impl = {
 	.attach_render = output_attach_render,
 	.rollback_render = output_rollback_render,
 	.test = output_test,
 	.commit = output_commit,
 	.destroy = output_destroy,
+	.create_layer = output_create_layer,
+	.destroy_layer = output_destroy_layer,
 };
 
 static uint32_t get_possible_crtcs(int drm_fd, drmModeConnector *conn) {

@@ -1,6 +1,7 @@
 #include <libliftoff.h>
 #include <stdlib.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/types/wlr_output_layer.h>
 #include "allocator.h"
 #include "server.h"
 #include "surface.h"
@@ -11,7 +12,7 @@ static void surface_output_destroy(struct glider_surface_output *so) {
 	}
 	wl_list_remove(&so->link);
 	wl_list_remove(&so->destroy.link);
-	liftoff_layer_destroy(so->layer);
+	wlr_output_layer_remove(so->layer);
 	free(so);
 }
 
@@ -36,18 +37,17 @@ static void handle_surface_destroy(struct wl_listener *listener, void *data) {
 
 static void handle_surface_commit(struct wl_listener *listener, void *data) {
 	struct glider_surface *surface = wl_container_of(listener, surface, commit);
-	struct wlr_client_buffer *buffer = surface->wlr_surface->buffer;
+	struct wlr_client_buffer *client_buffer = surface->wlr_surface->buffer;
 
-	if (buffer == NULL) {
-		return;
+	struct wlr_buffer *buffer = NULL;
+	if (client_buffer != NULL) {
+		buffer = &client_buffer->base;
 	}
 
 	struct glider_surface_output *so;
 	wl_list_for_each(so, &surface->outputs, link) {
-		liftoff_layer_set_fb_composited(so->layer);
-		liftoff_layer_set_property(so->layer, "zpos", 2);
-
-		glider_output_attach_buffer(so->output, &buffer->base, so->layer);
+		wlr_output_layer_attach_buffer(so->layer, buffer);
+		// TODO: set zpos
 	}
 }
 
@@ -78,7 +78,7 @@ void handle_new_xdg_surface(struct wl_listener *listener, void *data) {
 		struct glider_surface_output *so = calloc(1, sizeof(*so));
 		so->output = output;
 		so->surface = surface;
-		so->layer = liftoff_layer_create(output->liftoff_output);
+		so->layer = wlr_output_layer_create(output->output);
 		wl_list_insert(&surface->outputs, &so->link);
 
 		so->destroy.notify = handle_output_destroy;

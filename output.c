@@ -27,7 +27,7 @@ static bool output_render_bg(struct glider_output *output,
 }
 
 static bool output_needs_render(struct glider_output *output) {
-	if (liftoff_layer_get_plane_id(output->bg_layer) == 0) {
+	if (!output->bg_layer->accepted) {
 		return true;
 	}
 
@@ -35,7 +35,7 @@ static bool output_needs_render(struct glider_output *output) {
 	wl_list_for_each(surface, &output->server->surfaces, link) {
 		struct glider_surface_output *so =
 			glider_surface_get_output(surface, output);
-		if (so != NULL && liftoff_layer_get_plane_id(so->layer) == 0) {
+		if (so != NULL && !so->layer->accepted) {
 			return true;
 		}
 	}
@@ -61,7 +61,7 @@ static bool output_render(struct glider_output *output,
 	wl_list_for_each(surface, &output->server->surfaces, link) {
 		struct glider_surface_output *so =
 			glider_surface_get_output(surface, output);
-		if (so == NULL || liftoff_layer_get_plane_id(so->layer) != 0) {
+		if (so == NULL || so->layer->accepted) {
 			continue;
 		}
 
@@ -152,7 +152,7 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct glider_output *output = wl_container_of(listener, output, destroy);
 	wl_signal_emit(&output->events.destroy, NULL);
 	wlr_buffer_drop(output->bg_buffer);
-	liftoff_layer_destroy(output->bg_layer);
+	wlr_output_layer_remove(output->bg_layer);
 	glider_swapchain_destroy(output->swapchain);
 	liftoff_layer_destroy(output->composition_layer);
 	wl_list_remove(&output->destroy.link);
@@ -248,8 +248,7 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	liftoff_output_set_composition_layer(output->liftoff_output,
 		output->composition_layer);
 
-	output->bg_layer = liftoff_layer_create(output->liftoff_output);
-	liftoff_layer_set_property(output->bg_layer, "zpos", 1);
+	output->bg_layer = wlr_output_layer_create(output->output);
 
 	output->bg_buffer = glider_allocator_create_buffer(server->allocator,
 		output->output->width, output->output->height, format);
@@ -260,8 +259,5 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	if (!output_render_bg(output, output->bg_buffer)) {
 		return;
 	}
-	if (!glider_output_attach_buffer(output, output->bg_buffer,
-			output->bg_layer)) {
-		return;
-	}
+	wlr_output_layer_attach_buffer(output->bg_layer, output->bg_buffer);
 }
